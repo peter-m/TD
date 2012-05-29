@@ -11,17 +11,22 @@ function Game(canvas) {
      * width of the stage
      * @type {Number}
      */
-    this.width  = 800;
+    this.width  = this.canvas.width;
     /**
      * height of the stage
      * @type {Number}
      */
-    this.height = 600;
+    this.height = this.canvas.height;
     /**
      * width and height of the single tiles
      * @type {Number}
      */
     this.gutter = 10; // gutter is 10px wide
+
+
+    //
+    // CORE FUNCTIONS
+    //
 
     /**
      * setup the entire game and define initial default values
@@ -43,6 +48,20 @@ function Game(canvas) {
     this.render = function() {
         // do something with this.canvas here
     }
+
+    //
+    // MISC
+    //
+
+    /**
+     * shorthand for debugging purposes
+     * @param  {anything} msg Object/String to be showed in the console
+     */
+    this.log    = function(msg) {
+        console.log(msg);
+    }
+
+
 }
 
 var game = new Game(document.getElementById("game"));
