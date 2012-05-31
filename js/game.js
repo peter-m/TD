@@ -55,6 +55,17 @@ function Game(canvas, window) {
         heading: "24px Helvetica",
         text:    "12px Helvetica"
     }
+    /**
+     * storing all the games infos like resources, lives, ...
+     * @type {Object}
+     */
+    this.internal = {
+        lives: 100,
+        resources: {
+            wood:  100,
+            steel: 100
+        }
+    };
 
     /**
      * we want to position text as we are used to...
@@ -128,7 +139,7 @@ function Game(canvas, window) {
      * @param {Number} height
      * @param {Object} game   reference to the game object
      */
-    function Menu(x,y,width,height,color,game){
+    function Menu(x, y, width, height, color, game) {
         this.x      = x;
         this.y      = y;
         this.width  = width;
@@ -138,11 +149,16 @@ function Game(canvas, window) {
 
         this.render = function(){
             game.stage.save(); // saving settings like globalAlpha
-            game.stage.globalAlpha = 0.4; // change them temporarily
-            game.stage.fillStyle = this.color;
-            game.stage.fillRect(this.x, this.y, this.width, this.height); // draw background
-            game.stage.restore(); // restore settings (here: reset globalAlpha to default)
-            game.drawText("heading","MENU",this.x+10,this.y+10,game.default.color.text);
+                game.stage.globalAlpha = 0.4; // change them temporarily
+                game.stage.fillStyle = this.color; // set color for the background
+                game.stage.fillRect(this.x, this.y, this.width, this.height); // draw background
+            game.stage.restore(); // restore settings (here: reset globalAlpha and color to default)
+
+            game.stage.save();
+                game.stage.translate(this.x, this.y); // set new "zero point"
+                game.drawText("heading", "MENU", 10, 10, game.default.color.text); // draw heading
+                game.drawText("text", "lives: " + game.internal.lives, 10, 50, game.default.color.text); // draw live counter
+            game.stage.restore();
         }
     }
 
