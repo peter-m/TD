@@ -6,7 +6,8 @@
 <body>
     <canvas id="game" width="800" height="600"></canvas>
     
-    <script src="js/game.js"></script>
+    <script type="text/javascript" src="js/lib/kibo.min.js"></script>
+    <script type="text/javascript" src="js/game.js"></script>
 </body>
 
 </html>
