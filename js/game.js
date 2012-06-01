@@ -31,17 +31,56 @@ function Game(canvas, window) {
      * width and height of the single tiles
      * @type {Number}
      */
-    this.gutter = 10; // gutter is 10px wide
+    this.gutterWidth = 40; // gutter is 10px wide
     /**
      * aimed frames per second
      * @type {Number}
      */
     this.FPS    = 30;
     /**
-     * stores the games state (unitialized, running, paused)
+     * number of columns
+     * @type {Number}
+     */
+    this.columns = this.width  / this.gutterWidth;
+    /**
+     * number of rows
+     * @type {Number}
+     */
+    this.rows    = this.height / this.gutterWidth;
+    /**
+     * stores the games state ("unitialized"|"running"|"paused")
      * @type {String}
      */
     this.state  = "unitialized";
+    /**
+     * stores all the information about the map
+     * @type {Object}
+     */
+    this.map = 
+    {
+        "tiles":[
+            [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,1,1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1],
+            [1,0,1,1,1,0,1,1,1,0,1,0,0,0,0,1,1,1,0,1],
+            [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
+            [1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,0,1]
+        ]
+    }
+    /**
+     * Array with points the path consists of
+     * @type {Array}
+     */
+    this.map.path = a_star([0,1], [14,19], this.map.tiles, this.rows, this.columns);
     /**
      * defaults(=settings) are stored here
      * @type {Object}
@@ -159,6 +198,23 @@ function Game(canvas, window) {
                 game.drawText("heading", "MENU", 10, 10, game.default.color.text); // draw heading
                 game.drawText("text", "lives: " + game.internal.lives, 10, 50, game.default.color.text); // draw live counter
             game.stage.restore();
+        }
+    }
+
+    function Creep(x, y, type, game) {
+        this.x      = x; // find tile that is 1 and multiply it with gutter width
+        this.y      = y;
+        this.type   = type;
+
+        var tiles   = game.map.tiles;
+        var nextPoint = 2;
+        
+        this.update = function(){
+            
+        }
+
+        this.render = function(){
+
         }
     }
 
