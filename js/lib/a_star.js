@@ -20,11 +20,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-function a_star(start, destination, board, columns, rows)
+function a_star(start, destination, board)
 {
     //Create start and destination as true Nodes
     start = new Node(start[0], start[1], -1, -1, -1, -1);
     destination = new Node(destination[0], destination[1], -1, -1, -1, -1);
+
+    var rows = board[0].length; // x and y coordinates are swapped
+
+    var columns = board.length;
 
     var open = []; //List of open Nodes (Nodes to be inspected)
     var closed = []; //List of closed Nodes (Nodes we've already inspected)
