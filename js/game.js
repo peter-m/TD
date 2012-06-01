@@ -28,25 +28,10 @@ function Game(canvas, window) {
      */
     this.height = this.canvas.height;
     /**
-     * width and height of the single tiles
-     * @type {Number}
-     */
-    this.gutterWidth = 40; // gutter is 10px wide
-    /**
      * aimed frames per second
      * @type {Number}
      */
     this.FPS    = 30;
-    /**
-     * number of columns
-     * @type {Number}
-     */
-    this.columns = this.width  / this.gutterWidth;
-    /**
-     * number of rows
-     * @type {Number}
-     */
-    this.rows    = this.height / this.gutterWidth;
     /**
      * stores the games state ("unitialized"|"running"|"paused")
      * @type {String}
@@ -56,7 +41,7 @@ function Game(canvas, window) {
      * stores all the information about the map
      * @type {Object}
      */
-    this.map = 
+    this.map = // some JSON here, to be outsourced later on
     {
         "tiles":[
             [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -77,10 +62,35 @@ function Game(canvas, window) {
         ]
     }
     /**
+     * width and height of the single tiles
+     * @type {Number}
+     */
+    this.map.gutterWidth = 40; // gutter is 40px wide
+    /**
+     * number of columns
+     * @type {Number}
+     */
+    this.map.columns = this.width  / this.map.gutterWidth;
+    /**
+     * number of rows
+     * @type {Number}
+     */
+    this.map.rows    = this.height / this.map.gutterWidth;
+    /**
+     * point where creeps spawn
+     * @type {Array}
+     */
+    this.map.startingPoint = [0,1];
+    /**
+     * point where creeps want to get to
+     * @type {Array}
+     */
+    this.map.endingPoint = [14,19];
+    /**
      * Array with points the path consists of
      * @type {Array}
      */
-    this.map.path = a_star([0,1], [14,19], this.map.tiles, this.rows, this.columns);
+    this.map.path = a_star(this.map.startingPoint, this.map.endingPoint, this.map.tiles);
     /**
      * defaults(=settings) are stored here
      * @type {Object}
@@ -99,11 +109,13 @@ function Game(canvas, window) {
      * @type {Object}
      */
     this.internal = {
-        lives: 100,
-        resources: {
+        lives: 100, // if 100 creeps pass
+        score: 0,  // waves passed
+        resources: { // resources needed to build towers
             wood:  100,
             steel: 100
-        }
+        },
+        wave: [] // stores all the waves
     };
 
     /**
@@ -117,14 +129,14 @@ function Game(canvas, window) {
     
     /**
      * sets up the interval
-     * @param  {Object} _this reference to the Game object
+     * @param  {Object} game reference to the Game object
      */
-    function startGameLoop(_this){
-        _this.state = "running";
-        _this.ticker = window.setInterval(function() {
-            _this.update();
-            _this.render();
-        }, 1000/_this.FPS);
+    function startGameLoop(game){
+        game.state = "running";
+        game.ticker = window.setInterval(function() {
+            game.update();
+            game.render();
+        }, 1000/game.FPS);
     }
 
     /**
@@ -132,6 +144,7 @@ function Game(canvas, window) {
      */
     this.init   = function() {
         startGameLoop(this);
+        this.bg_map = new Map(this);
         this.menu = new Menu(600,0,200,600,this.default.color.background,this);
     }
 
@@ -154,7 +167,7 @@ function Game(canvas, window) {
      * game logic like updating lives, etc. goes here
      */
     this.update = function() {
-        console.log("updating");
+        
     }
 
     /**
@@ -162,8 +175,8 @@ function Game(canvas, window) {
      */
     this.render = function() {
         this.stage.clearRect(0, 0, this.width, this.height);
-
-        this.menu.render();
+        this.bg_map.render();
+        //this.menu.render();
     }
 
     //////////////////
@@ -184,7 +197,6 @@ function Game(canvas, window) {
         this.width  = width;
         this.height = height;
         this.color  = color;
-        //this.game = game;
 
         this.render = function(){
             game.stage.save(); // saving settings like globalAlpha
@@ -201,8 +213,40 @@ function Game(canvas, window) {
         }
     }
 
+    /**
+     * Map Class drawing the map as a background
+     * @param {Object} game reference to the current game instance (Map class needs information about the tiles and access to the canvas 2D context)
+     */
+    function Map(game) {
+        this.render = function(){
+            var w = game.map.gutterWidth;
+            game.stage.save();
+            for (var i = 0; i < game.map.tiles.length; i++) { // i = row
+                for (var j = 0; j < game.map.tiles[i].length; j++) { // j = column
+                    switch(game.map.tiles[i][j]) {
+                        case 0:
+                            game.stage.fillStyle = "#FFF";
+                            break;
+                        case 1:
+                            game.stage.fillStyle = "#000";
+                            break;
+                        default:
+                            game.stage.fillStyle = "#000";
+                            break;
+                    }
+                    game.stage.fillRect(j*w,i*w,w,w);
+                };
+            };
+            game.stage.restore();
+        }
+    }
+
+    function Wave(game, creepList) {
+
+    }
+
     function Creep(x, y, type, game) {
-        this.x      = x; // find tile that is 1 and multiply it with gutter width
+        this.x      = x;
         this.y      = y;
         this.type   = type;
 
