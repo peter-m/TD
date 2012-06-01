@@ -95,15 +95,16 @@ function Game(canvas, window) {
      * defaults(=settings) are stored here
      * @type {Object}
      */
-    this.default = {};
-    this.default.color = {
-        text: "#000",
-        background: "#00A"
-    }
-    this.default.font  = {
-        heading: "24px Helvetica",
-        text:    "12px Helvetica"
-    }
+    this.default = {
+        color: {
+            text:       "#000",
+            background: "#00A"
+        },
+        font: {
+            heading: "24px Helvetica",
+            text:    "12px Helvetica"
+        }
+    };
     /**
      * storing all the games infos like resources, lives, ...
      * @type {Object}
@@ -115,7 +116,8 @@ function Game(canvas, window) {
             wood:  100,
             steel: 100
         },
-        wave: [] // stores all the waves
+        wave: [], // stores all the waves
+        creeps: [] // stores all the creeps
     };
 
     /**
@@ -145,6 +147,7 @@ function Game(canvas, window) {
     this.init   = function() {
         startGameLoop(this);
         this.bg_map = new Map(this);
+        this.internal.wave[0] = new Wave(this,[[Creep,10],[Creep,5]]);
         this.menu = new Menu(600,0,200,600,this.default.color.background,this);
     }
 
@@ -167,7 +170,9 @@ function Game(canvas, window) {
      * game logic like updating lives, etc. goes here
      */
     this.update = function() {
-        
+        for (var i = 0; i < this.internal.creeps.length; i++) { // update position of all creeps
+            this.internal.creeps[i].update();
+        };
     }
 
     /**
@@ -176,6 +181,10 @@ function Game(canvas, window) {
     this.render = function() {
         this.stage.clearRect(0, 0, this.width, this.height);
         this.bg_map.render();
+        this.bg_map.highlightPath();
+        for (var i = 0; i < this.internal.creeps.length; i++) { // update position of all creeps
+            this.internal.creeps[i].render();
+        };
         //this.menu.render();
     }
 
@@ -239,19 +248,35 @@ function Game(canvas, window) {
             };
             game.stage.restore();
         }
+        this.highlightPath = function(){
+            var path = game.map.path,
+                w    = game.map.gutterWidth;
+            game.stage.save();
+            game.stage.fillStyle = "#C0F";
+            game.stage.globalAlpha = 0.6;
+            for (var i = 0; i < path.length; i++) {
+                game.stage.fillRect(path[i].y*w,path[i].x*w,w,w);
+                game.drawText("text", i, path[i].y*w + 2, path[i].x*w + 2, "#000");
+            };
+            game.stage.restore();
+        }
     }
 
     function Wave(game, creepList) {
-
+        var creeps = game.internal.creeps;
+        for (var i = 0; i < creepList.length; i++) { // for every group of creeps...
+            for (var j = 0; j < creepList[i][1]; j++) { // ...spawn given amount of creeps
+                creeps[creeps.length] = new creepList[i][0](game); // spawn the given class of creep
+            };
+        };
+        console.log(creeps);
     }
 
-    function Creep(x, y, type, game) {
-        this.x      = x;
-        this.y      = y;
-        this.type   = type;
+    function Creep(game) {
+        this.x      = game.map.path[0].x;
+        this.y      = game.map.path[0].y;
 
         var tiles   = game.map.tiles;
-        var nextPoint = 2;
         
         this.update = function(){
             
