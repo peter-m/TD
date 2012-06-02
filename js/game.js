@@ -38,12 +38,11 @@ function Game(canvas, window) {
      */
     this.state  = "unitialized";
     /**
-     * stores all the information about the map
+     * map - stores all the information about the map
      * @type {Object}
      */
-    this.map = // some JSON here, to be outsourced later on
-    {
-        "tiles":[
+    this.map = {
+        "tiles": new Graph([
             [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,0,1,1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
             [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1],
@@ -59,13 +58,9 @@ function Game(canvas, window) {
             [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
             [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
             [1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,0,1]
-        ]
-    }
-    /**
-     * width and height of the single tiles
-     * @type {Number}
-     */
-    this.map.gutterWidth = 40; // gutter is 40px wide
+        ]),
+        "gutterWidth": 40 // width and height of the single tiles
+    };
     /**
      * number of columns
      * @type {Number}
@@ -78,19 +73,19 @@ function Game(canvas, window) {
     this.map.rows    = this.height / this.map.gutterWidth;
     /**
      * point where creeps spawn
-     * @type {Array}
+     * @type {Object}
      */
-    this.map.startingPoint = [0,1];
+    this.map.startingPoint = this.map.tiles.nodes[0][1];
     /**
      * point where creeps want to get to
-     * @type {Array}
+     * @type {Object}
      */
-    this.map.endingPoint = [14,19];
+    this.map.endingPoint = this.map.tiles.nodes[14][18];
     /**
      * Array with points the path consists of
      * @type {Array}
      */
-    this.map.path = a_star(this.map.startingPoint, this.map.endingPoint, this.map.tiles);
+    this.map.path = astar.search(this.map.tiles.nodes, this.map.startingPoint, this.map.endingPoint);
     /**
      * defaults(=settings) are stored here
      * @type {Object}
@@ -230,9 +225,9 @@ function Game(canvas, window) {
         this.render = function(){
             var w = game.map.gutterWidth;
             game.stage.save();
-            for (var i = 0; i < game.map.tiles.length; i++) { // i = row
-                for (var j = 0; j < game.map.tiles[i].length; j++) { // j = column
-                    switch(game.map.tiles[i][j]) {
+            for (var i = 0; i < game.map.tiles.input.length; i++) { // i = row
+                for (var j = 0; j < game.map.tiles.input[i].length; j++) { // j = column
+                    switch(game.map.tiles.input[i][j]) {
                         case 0:
                             game.stage.fillStyle = "#FFF";
                             break;
@@ -269,7 +264,7 @@ function Game(canvas, window) {
                 creeps[creeps.length] = new creepList[i][0](game); // spawn the given class of creep
             };
         };
-        console.log(creeps);
+
     }
 
     function Creep(game) {

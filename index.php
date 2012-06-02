@@ -7,7 +7,8 @@
 <body>
     <canvas id="game" width="800" height="600"></canvas>
     
-    <script type="text/javascript" src="js/lib/a_star.js"></script>
+    <script type="text/javascript" src="js/lib/pathfinding/graph.js"></script>
+    <script type="text/javascript" src="js/lib/pathfinding/a_star.js"></script>
     <script type="text/javascript" src="js/lib/kibo.min.js"></script>
     <script type="text/javascript" src="js/game.js"></script>
 </body>
