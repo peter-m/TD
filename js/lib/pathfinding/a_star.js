@@ -11,10 +11,24 @@ var astar = {
                 node.f = 0;
                 node.g = 0;
                 node.h = 0;
-                node.cost = 1;
                 node.visited = false;
                 node.closed = false;
                 node.parent = null;
+
+                switch(grid[x][y].type) {
+                    case 0:
+                        node.cost = 1;
+                        break;
+                    case 1:
+                        node.cost = 1;
+                        break;
+                    case 2:
+                        node.cost = 3;
+                        break;
+                    default:
+                        node.cost = 1;
+                        break;
+                }
             }
         }
     },
