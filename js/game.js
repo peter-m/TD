@@ -165,8 +165,11 @@ function Game(canvas, window) {
      * game logic like updating lives, etc. goes here
      */
     this.update = function() {
-        for (var i = 0; i < this.internal.creeps.length; i++) { // update position of all creeps
-            this.internal.creeps[i].update();
+        var creeps = this.internal.creeps;
+        for (var i = 0; i < creeps.length; i++) { // update position of all creeps
+            if (creeps[i] !== undefined) { // don't try to update deleted creeps
+                creeps[i].update();
+            }
         };
     }
 
@@ -177,8 +180,11 @@ function Game(canvas, window) {
         this.stage.clearRect(0, 0, this.width, this.height);
         this.bg_map.render();
         this.bg_map.highlightPath();
-        for (var i = 0; i < this.internal.creeps.length; i++) { // update position of all creeps
-            this.internal.creeps[i].render();
+        var creeps = this.internal.creeps;
+        for (var i = 0; i < creeps.length; i++) { // update position of all creeps
+            if (creeps[i] !== undefined) { // don't try to render deleted creeps
+                creeps[i].render();
+            }
         };
         //this.menu.render();
     }
@@ -267,21 +273,87 @@ function Game(canvas, window) {
                 creeps[creeps.length] = new creepList[i][0](game); // spawn the given class of creep
             };
         };
-
+        var _this = this;
+        var creepSpawner = window.setInterval(spawnCreep, 1000);
+        var i = 0;
+        function spawnCreep(){
+            creeps[i].spawn();
+            i++;
+            if (creeps[i] === undefined) {
+                window.clearInterval(creepSpawner);
+            }
+        }
     }
 
     function Creep(game) {
-        this.x      = game.map.path[0].x;
-        this.y      = game.map.path[0].y;
+        var i        = 0,
+            tiles    = game.map.tiles,
+            path     = game.map.path,
+            w        = game.map.gutterWidth,
+            tolerance= 10/w;
 
-        var tiles   = game.map.tiles;
+        this.x       = path[i].x;
+        this.y       = path[i].y;
+
+        this.speed   = 4;
+        this._speed  = this.speed; // for resetting
         
-        this.update = function(){
-            
+        this.next    = {};
+        this.next.x  = path[i+1].x;
+        this.next.y  = path[i+1].y;
+
+        this.spawned = false;
+        
+        this.update  = function(){
+            if(this.spawned) {
+                var type = tiles.input[Math.floor(this.x)][Math.floor(this.y)];
+                switch(type) {
+                    case 2:
+                        this.speed = this._speed/2; // slow down if type == 2
+                        break;
+                    default:
+                        this.speed = this._speed;
+                        break;
+                }
+
+                if ((this.next.x - this.x) < 0) { // if we are moving right
+                    this.x -= this.speed/w;
+                } 
+                if ((this.next.x - this.x) > 0) { // if we are moving left
+                    this.x += this.speed/w;
+                }
+                if ((this.next.y - this.y) < 0) { // if we are moving up
+                    this.y -= this.speed/w;
+                }
+                if ((this.next.y - this.y) > 0) { // if we are moving down
+                    this.y += this.speed/w;
+                }
+
+                if ((this.x <= this.next.x+tolerance && this.x >= this.next.x-tolerance) && (this.y <= this.next.y+tolerance && this.y >= this.next.y-tolerance)) { // if next point has been reached
+                    i++; // increase counter by one
+                    if (path[i+1] !== undefined) { // check if there is a next point
+                        this.next.x = path[i+1].x;
+                        this.next.y = path[i+1].y;
+                    }
+                    else { // if there is no point left, creep has reached the end
+                        this.spawned = false; // remove it
+                        game.internal.lives--;
+                    }
+                }
+            }
         }
 
-        this.render = function(){
+        this.render  = function(){
+            if(this.spawned) {
+                game.stage.save();
+                    game.stage.fillStyle = "#C0F";
+                    game.stage.fillRect(this.y*w + w/4, this.x*w + w/4, w/2, w/2);
+                game.stage.restore();
+            }
+        }
 
+        this.spawn   = function(){
+            this.spawned = true;
         }
     }
 
