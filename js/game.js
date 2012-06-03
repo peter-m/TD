@@ -166,6 +166,17 @@ function Game(canvas, document, window) {
          */
         creeps: []
     };
+    /**
+     * stores some variables for debugging
+     * @type {Object}
+     */
+    this.debug = {
+        /**
+         * should the path be highlighted or not?
+         * @type {Boolean}
+         */
+        highlightPath: false
+    }
 
     /**
      * we want to position text as we are used to...
@@ -231,7 +242,7 @@ function Game(canvas, document, window) {
     this.render = function() {
         this.stage.clearRect(0, 0, this.width, this.height); // make canvas white again to draw something new onto it
         this.bg_map.render(); // render the tiles
-        this.bg_map.highlightPath(); // highlight the path (rather for testing purposes)
+        if (this.debug.highlightPath) this.bg_map.highlightPath(); // highlight the path (rather for testing purposes)
         /**
          * shorthand for list of creeps to be rendered
          * @type {Array}
@@ -520,3 +531,10 @@ var game = new Game(document.getElementById("game"), document, window); // start
 k.up("alt p", function(){
     (game.state==="running") ? game.pause() : game.resume();
 });
+
+///////////////////////////////////////////////
+// add some settings to be made via the menu //
+///////////////////////////////////////////////
+document.getElementById("highlightPath").addEventListener("click",function(){
+    game.debug.highlightPath = !game.debug.highlightPath;
+}, false);
