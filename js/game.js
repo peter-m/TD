@@ -1,7 +1,7 @@
 /**
  * game logic goes here
  */
-function Game(canvas, window) {
+function Game(canvas, document, window) {
 
     /////////////////////
     // VAR DECLARATION //
@@ -42,7 +42,11 @@ function Game(canvas, window) {
      * @type {Object}
      */
     this.map = {
-        "tiles": new Graph([
+        /**
+         * stores info about the map
+         * @type {Graph}
+         */
+        tiles: new Graph([
             [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,0,1,1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
             [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1],
@@ -59,7 +63,11 @@ function Game(canvas, window) {
             [1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
             [1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,0,1]
         ]),
-        "gutterWidth": 40 // width and height of the single tiles
+        /**
+         * width and height of the single tiles
+         * @type {Number}
+         */
+        gutterWidth: 40
     };
     /**
      * number of columns
@@ -91,12 +99,36 @@ function Game(canvas, window) {
      * @type {Object}
      */
     this.default = {
+        /**
+         * default colors for various purposes
+         * @type {Object}
+         */
         color: {
+            /**
+             * default color for text
+             * @type {String}
+             */
             text:       "#000",
+            /**
+             * default color for backgrounds
+             * @type {String}
+             */
             background: "#00A"
         },
+        /**
+         * font settings for various purposes
+         * @type {Object}
+         */
         font: {
+            /**
+             * font settings for headings
+             * @type {String}
+             */
             heading: "24px Helvetica",
+            /**
+             * font settings for normal text
+             * @type {String}
+             */
             text:    "12px Helvetica"
         }
     };
@@ -105,14 +137,34 @@ function Game(canvas, window) {
      * @type {Object}
      */
     this.internal = {
-        lives: 100, // if 100 creeps pass
-        score: 0,  // waves passed
-        resources: { // resources needed to build towers
+        /**
+         * if 100 creeps pass, you've lost
+         * @type {Number}
+         */
+        lives: 100,
+        /**
+         * how far did you get?
+         * @type {Number}
+         */
+        score: 0,
+        /**
+         * resources needed to build towers
+         * @type {Object}
+         */
+        resources: {
             wood:  100,
             steel: 100
         },
-        wave: [], // stores all the waves
-        creeps: [] // stores all the creeps
+        /**
+         * stores all the waves
+         * @type {Array}
+         */
+        wave: [],
+        /**
+         * stores references to all the creeps
+         * @type {Array}
+         */
+        creeps: []
     };
 
     /**
@@ -143,7 +195,7 @@ function Game(canvas, window) {
         startGameLoop(this);
         this.bg_map = new Map(this);
         this.internal.wave[0] = new Wave(this,[[Creep,10],[Creep,5]]);
-        this.menu = new Menu(600,0,200,600,this.default.color.background,this);
+        this.menu = new Menu(this, document);
     }
 
     /**
@@ -177,16 +229,20 @@ function Game(canvas, window) {
      * render the entire logic
      */
     this.render = function() {
-        this.stage.clearRect(0, 0, this.width, this.height);
-        this.bg_map.render();
-        this.bg_map.highlightPath();
+        this.stage.clearRect(0, 0, this.width, this.height); // make canvas white again to draw something new onto it
+        this.bg_map.render(); // render the tiles
+        this.bg_map.highlightPath(); // highlight the path (rather for testing purposes)
+        /**
+         * shorthand for list of creeps to be rendered
+         * @type {Array}
+         */
         var creeps = this.internal.creeps;
         for (var i = 0; i < creeps.length; i++) { // update position of all creeps
             if (creeps[i] !== undefined) { // don't try to render deleted creeps
                 creeps[i].render();
             }
         };
-        //this.menu.render();
+        this.menu.render(); // render the menu to display options, infos, etc.
     }
 
     //////////////////
@@ -195,31 +251,20 @@ function Game(canvas, window) {
 
     /**
      * Menu Class
-     * @param {Number} x
-     * @param {Number} y
-     * @param {Number} width
-     * @param {Number} height
      * @param {Object} game   reference to the game object
      */
-    function Menu(x, y, width, height, color, game) {
-        this.x      = x;
-        this.y      = y;
-        this.width  = width;
-        this.height = height;
-        this.color  = color;
+    function Menu(game) {
+        /**
+         * reference to the DOM element displaying the lives
+         * @type {DOM}
+         */
+        this.lives = document.getElementById("lives");
 
+        /**
+         * display the information
+         */
         this.render = function(){
-            game.stage.save(); // saving settings like globalAlpha
-                game.stage.globalAlpha = 0.4; // change them temporarily
-                game.stage.fillStyle = this.color; // set color for the background
-                game.stage.fillRect(this.x, this.y, this.width, this.height); // draw background
-            game.stage.restore(); // restore settings (here: reset globalAlpha and color to default)
-
-            game.stage.save();
-                game.stage.translate(this.x, this.y); // set new "zero point"
-                game.drawText("heading", "MENU", 10, 10, game.default.color.text); // draw heading
-                game.drawText("text", "lives: " + game.internal.lives, 10, 50, game.default.color.text); // draw live counter
-            game.stage.restore();
+            this.lives.innerHTML = game.internal.lives+''; // +'' converts Number to String
         }
     }
 
@@ -228,94 +273,169 @@ function Game(canvas, window) {
      * @param {Object} game reference to the current game instance (Map class needs information about the tiles and access to the canvas 2D context)
      */
     function Map(game) {
+        /**
+         * shorthand for gutterWidth
+         * @type {Number}
+         */
+        var w = game.map.gutterWidth;
+
+        /**
+         * renders all the tiles
+         */
         this.render = function(){
-            var w = game.map.gutterWidth;
             game.stage.save();
-            for (var i = 0; i < game.map.tiles.input.length; i++) { // i = row
-                for (var j = 0; j < game.map.tiles.input[i].length; j++) { // j = column
-                    switch(game.map.tiles.input[i][j]) {
-                        case 0:
-                            game.stage.fillStyle = "#FFF";
-                            break;
-                        case 1:
-                            game.stage.fillStyle = "#000";
-                            break;
-                        case 2:
-                            game.stage.fillStyle = "#FA0";
-                            break;
-                        default:
-                            game.stage.fillStyle = "#000";
-                            break;
-                    }
-                    game.stage.fillRect(j*w,i*w,w,w);
+                for (var i = 0; i < game.map.tiles.input.length; i++) { // i = row
+                    for (var j = 0; j < game.map.tiles.input[i].length; j++) { // j = column
+                        switch(game.map.tiles.input[i][j]) { // depending on which type a tile is, take a different color to draw it
+                            case 0:
+                                game.stage.fillStyle = "#FFF";
+                                break;
+                            case 1:
+                                game.stage.fillStyle = "#000";
+                                break;
+                            case 2:
+                                game.stage.fillStyle = "#FA0";
+                                break;
+                            default:
+                                game.stage.fillStyle = "#000";
+                                break;
+                        }
+                        game.stage.fillRect(j*w,i*w,w,w); // draw the tile
+                    };
                 };
-            };
             game.stage.restore();
         }
+        /**
+         * distinguish the path from other tiles
+         */
         this.highlightPath = function(){
-            var path = game.map.path,
-                w    = game.map.gutterWidth;
+            /**
+             * shorthand for path
+             * @type {Array}
+             */
+            var path = game.map.path;
+                
             game.stage.save();
-            game.stage.fillStyle = "#C0F";
-            game.stage.globalAlpha = 0.6;
-            for (var i = 0; i < path.length; i++) {
-                game.stage.fillRect(path[i].y*w,path[i].x*w,w,w);
-                game.drawText("text", i, path[i].y*w + 2, path[i].x*w + 2, "#000");
-            };
+                game.stage.fillStyle = "#C0F";
+                game.stage.globalAlpha = 0.6;
+                for (var i = 0; i < path.length; i++) { //for every part of the path...
+                    game.stage.fillRect(path[i].y*w,path[i].x*w,w,w); // ... draw a rect
+                    game.drawText("text", i, path[i].y*w + 2, path[i].x*w + 2, "#000"); // ... and add the index of it
+                };
             game.stage.restore();
         }
     }
 
     function Wave(game, creepList) {
+        /**
+         * shorthand for the list of creeps
+         * @type {Array}
+         */
         var creeps = game.internal.creeps;
         for (var i = 0; i < creepList.length; i++) { // for every group of creeps...
             for (var j = 0; j < creepList[i][1]; j++) { // ...spawn given amount of creeps
                 creeps[creeps.length] = new creepList[i][0](game); // spawn the given class of creep
             };
         };
-        var _this = this;
+        /**
+         * calls the spawnCreep function every second to spawn a new creep
+         * @type {Interval}
+         */
         var creepSpawner = window.setInterval(spawnCreep, 1000);
+        /**
+         * counter used to iterate through the list of all creeps
+         * @type {Number}
+         */
         var i = 0;
+        /**
+         * spawns the "i"th creep of the game.internal.creeps Array until there is none left --> then clear the timer (creepSpawner)
+         */
         function spawnCreep(){
             creeps[i].spawn();
             i++;
-            if (creeps[i] === undefined) {
-                window.clearInterval(creepSpawner);
+            if (creeps[i] === undefined) { // if there is no more creep to spawn...
+                window.clearInterval(creepSpawner); // ... stop the timer
             }
         }
     }
 
     function Creep(game) {
+        /**
+         * counter - stands for the "i"th point of the path the creep is on
+         * @type {Number}
+         */
         var i        = 0,
+        /**
+         * shorthand for tiles
+         * @type {Object}
+         */
             tiles    = game.map.tiles,
+        /**
+         * shorthand for path
+         * @type {Array}
+         */
             path     = game.map.path,
+        /**
+         * shorthand for gutterWidth
+         * @type {Number}
+         */
             w        = game.map.gutterWidth,
+        /**
+         * tolerance whether a point has been reached or not (if set to 0 the creep has to be exactly on the point - this will never be the case though)
+         * @type {Number}
+         */
             tolerance= 10/w;
-
+        /**
+         * x-coordinate, is _not_ in pixels, but in squares (e.g. 3 squares from the left)
+         * @type {Number}
+         */
         this.x       = path[i].x;
+        /**
+         * y-coordinate, is _not_ in pixels, but in squares (e.g. 2 squares from the top)
+         * @type {Number}
+         */
         this.y       = path[i].y;
-
+        /**
+         * how fast the creep is moving
+         * @type {Number}
+         */
         this.speed   = 4;
-        this._speed  = this.speed; // for resetting
-        
-        this.next    = {};
-        this.next.x  = path[i+1].x;
-        this.next.y  = path[i+1].y;
-
+        /**
+         * for resetting (stores the original speed)
+         * @type {Number}
+         */
+        this._speed  = this.speed;
+        /**
+         * stores the coordinates of the next point the creep moves towards to
+         * @type {Object}
+         */
+        this.next    = {
+            "x": path[i+1].x,
+            "y": path[i+1].y
+        };
+        /**
+         * indicates whether the creep is spawned (--> moves) or not (has not yet been spawned, has reached the end or has been killed) 
+         * @type {Boolean}
+         */
         this.spawned = false;
-        
+
+        /**
+         * recalculates the position, etc. (more to follow?)
+         */
         this.update  = function(){
             if(this.spawned) {
-                var type = tiles.input[Math.floor(this.x)][Math.floor(this.y)];
+                var type = tiles.input[Math.floor(this.x)][Math.floor(this.y)]; // strip out everything after the coordinates' comma to get decimal numbers and check what type of tile it is in order to adjust speed, etc.
                 switch(type) {
                     case 2:
                         this.speed = this._speed/2; // slow down if type == 2
                         break;
                     default:
-                        this.speed = this._speed;
+                        this.speed = this._speed; // do nothing(/reset to default) if there's nothing special
                         break;
                 }
 
+                // this block of code is kind of weird because of the map's nature x and y are swapped
+                // moves creep dependent on their speed (it's "/w" because the creep's coordinates are not in pixels --> don't move 2 fields when speed = 2)
                 if ((this.next.x - this.x) < 0) { // if we are moving right
                     this.x -= this.speed/w;
                 } 
@@ -331,27 +451,31 @@ function Game(canvas, window) {
 
                 if ((this.x <= this.next.x+tolerance && this.x >= this.next.x-tolerance) && (this.y <= this.next.y+tolerance && this.y >= this.next.y-tolerance)) { // if next point has been reached
                     i++; // increase counter by one
-                    if (path[i+1] !== undefined) { // check if there is a next point
-                        this.next.x = path[i+1].x;
+                    if (path[i+1] !== undefined) { // check if there is a next point and if so ...
+                        this.next.x = path[i+1].x; // ... set next.x and next.y to the ones of the next point
                         this.next.y = path[i+1].y;
                     }
                     else { // if there is no point left, creep has reached the end
                         this.spawned = false; // remove it
-                        game.internal.lives--;
+                        game.internal.lives--; // remove one life
                     }
                 }
             }
         }
-
+        /**
+         * display the creep
+         */
         this.render  = function(){
-            if(this.spawned) {
+            if(this.spawned) { // only display if it's spawned
                 game.stage.save();
                     game.stage.fillStyle = "#C0F";
-                    game.stage.fillRect(this.y*w + w/4, this.x*w + w/4, w/2, w/2);
+                    game.stage.fillRect(this.y*w + w/4, this.x*w + w/4, w/2, w/2); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
                 game.stage.restore();
             }
         }
-
+        /**
+         * spawn a creep
+         */
         this.spawn   = function(){
             this.spawned = true;
         }
@@ -371,25 +495,28 @@ function Game(canvas, window) {
      */
     this.drawText = function(type,text,x,y,color) {
         this.stage.save();
-        this.stage.fillStyle = color;
-        switch (type) {
-            case "heading":
-                this.stage.font = this.default.font.heading;
-                break;
-            case "text":
-                this.stage.font = this.default.font.text;
-                break;
-        }
-        this.stage.fillText(text,x,y);
+            this.stage.fillStyle = color;
+            switch (type) {
+                case "heading":
+                    this.stage.font = this.default.font.heading;
+                    break;
+                case "text":
+                    this.stage.font = this.default.font.text;
+                    break;
+            }
+            this.stage.fillText(text,x,y);
         this.stage.restore();
     }
 
-    this.init();
+    this.init(); // initiate the whole game
 }
 
-var k    = new Kibo();
-var game = new Game(document.getElementById("game"), window);
+var k    = new Kibo(); // initiate the keyboard library
+var game = new Game(document.getElementById("game"), document, window); // start the game
 
+///////////////////////////////////////////
+// add some keyboard input functionality //
+///////////////////////////////////////////
 k.up("alt p", function(){
     (game.state==="running") ? game.pause() : game.resume();
 });
