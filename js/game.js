@@ -536,5 +536,5 @@ k.up("alt p", function(){
 // add some settings to be made via the menu //
 ///////////////////////////////////////////////
 document.getElementById("highlightPath").addEventListener("click",function(){
-    game.debug.highlightPath = !game.debug.highlightPath;
+    game.debug.highlightPath = !game.debug.highlightPath; // toggle the highlightPath option
 }, false);

@@ -3,14 +3,18 @@
     padding:0;
 }
 
-#game,#menu {
-    float: left;
+#game, #menu {
+    width:100%;
 }
 
-#menu {
-    width:20%;
+@media only screen and (min-width: 1038px) {
+    #game,#menu {
+        float: left;
+    }
+    #menu {
+        width:20%;
+    }
+    #game {
+        width:80%;
+    }
 }
-
-/*#game {
-    width:60%;
-}*/
