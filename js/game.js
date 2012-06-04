@@ -9,12 +9,12 @@ function Game(canvas, document, window) {
 
     /**
      * reference to the canvas DOM element
-     * @type {DOM element}
+     * @type {Object}
      */
     this.canvas = canvas;
     /**
      * reference to the object to draw at
-     * @type {canvas}
+     * @type {Object}
      */
     this.stage  = this.canvas.getContext('2d');
     /**
@@ -177,6 +177,11 @@ function Game(canvas, document, window) {
          */
         highlightPath: false
     }
+    /**
+     * stores the coordinates of the currently hovered tile
+     * @type {Object}
+     */
+    this.hoveredTile = {}
 
     /**
      * we want to position text as we are used to...
@@ -203,9 +208,17 @@ function Game(canvas, document, window) {
      * setup the entire game and define initial default values
      */
     this.init   = function() {
-        startGameLoop(this);
+        startGameLoop(this); // start the ticker
+        /**
+         * stores the tiles' visualization
+         * @type {Map}
+         */
         this.bg_map = new Map(this);
-        this.internal.wave[0] = new Wave(this,[[Creep,10],[Creep,5]]);
+        this.internal.wave[0] = new Wave(this,[[Creep,10],[Creep,5]]); // initiate a new wave
+        /**
+         * reference to the menu object
+         * @type {Menu}
+         */
         this.menu = new Menu(this, document);
     }
 
@@ -228,6 +241,13 @@ function Game(canvas, document, window) {
      * game logic like updating lives, etc. goes here
      */
     this.update = function() {
+        // calculate the currently hovered tile's coordinates
+        this.hoveredTile.x = Math.floor(mouse.x / (2*this.map.gutterWidth));
+        this.hoveredTile.y = Math.floor(mouse.y / (2*this.map.gutterWidth));
+        /**
+         * shorthand for list of all creeps
+         * @type {Array}
+         */
         var creeps = this.internal.creeps;
         for (var i = 0; i < creeps.length; i++) { // update position of all creeps
             if (creeps[i] !== undefined) { // don't try to update deleted creeps
@@ -267,7 +287,7 @@ function Game(canvas, document, window) {
     function Menu(game) {
         /**
          * reference to the DOM element displaying the lives
-         * @type {DOM}
+         * @type {Object}
          */
         this.lives = document.getElementById("lives");
 
@@ -294,10 +314,15 @@ function Game(canvas, document, window) {
          * renders all the tiles
          */
         this.render = function(){
+            /**
+             * shorthand for the tiles Array storing the type of each tile
+             * @type {Array}
+             */
+            var tiles = game.map.tiles.input;
             game.stage.save();
-                for (var i = 0; i < game.map.tiles.input.length; i++) { // i = row
-                    for (var j = 0; j < game.map.tiles.input[i].length; j++) { // j = column
-                        switch(game.map.tiles.input[i][j]) { // depending on which type a tile is, take a different color to draw it
+                for (var i = 0; i < tiles.length; i++) { // i = row
+                    for (var j = 0; j < tiles[i].length; j++) { // j = column
+                        switch(tiles[i][j]) { // depending on which type a tile is, take a different color to draw it
                             case 0:
                                 game.stage.fillStyle = "#FFF";
                                 break;
@@ -375,27 +400,27 @@ function Game(canvas, document, window) {
          * counter - stands for the "i"th point of the path the creep is on
          * @type {Number}
          */
-        var i        = 0,
+        var i    = 0,
         /**
          * shorthand for tiles
          * @type {Object}
          */
-            tiles    = game.map.tiles,
+        tiles    = game.map.tiles,
         /**
          * shorthand for path
          * @type {Array}
          */
-            path     = game.map.path,
+        path     = game.map.path,
         /**
          * shorthand for gutterWidth
          * @type {Number}
          */
-            w        = game.map.gutterWidth,
+        w        = game.map.gutterWidth,
         /**
          * tolerance whether a point has been reached or not (if set to 0 the creep has to be exactly on the point - this will never be the case though)
          * @type {Number}
          */
-            tolerance= 10/w;
+        tolerance= 10/w;
         /**
          * x-coordinate, is _not_ in pixels, but in squares (e.g. 3 squares from the left)
          * @type {Number}
@@ -522,8 +547,34 @@ function Game(canvas, document, window) {
     this.init(); // initiate the whole game
 }
 
-var k    = new Kibo(); // initiate the keyboard library
-var game = new Game(document.getElementById("game"), document, window); // start the game
+    /**
+     * initiate the keyboard library
+     * @type {Kibo}
+     */
+var k     = new Kibo(),
+    /**
+     * DOM reference to the canvas object
+     * @type {Object}
+     */
+   _game  = document.getElementById("game"),
+    /**
+     * start the game
+     * @type {Game}
+     */
+    game  = new Game(_game, document, window),
+    /**
+     * stores mouse position relative to the canvas object
+     * @type {Object}
+     */
+    mouse = {};
+
+///////////////////////////////
+// update the mouse position //
+///////////////////////////////
+$(document).mousemove(function(e){
+    mouse.x = e.pageX - _game.offsetLeft;
+    mouse.y = e.pageY - _game.offsetTop;
+});
 
 ///////////////////////////////////////////
 // add some keyboard input functionality //
