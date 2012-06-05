@@ -156,11 +156,6 @@ function Game(canvas, document, window) {
             steel: 100
         },
         /**
-         * stores all the waves
-         * @type {Array}
-         */
-        wave: [],
-        /**
          * stores references to all the creeps
          * @type {Array}
          */
@@ -234,8 +229,9 @@ function Game(canvas, document, window) {
          * @type {Map}
          */
         this.bg_map = new Map(this);
-        this.internal.wave[0] = new Wave(this,[[Creep,10],[Creep,5]]); // initiate a new wave
+        this.internal.wave = new Wave(this,[["normal",5]]); // initiate a new wave
         this.internal.turrets[0] = new Turret(this, 2, 2); // place a tower for testing purposes
+        this.internal.turrets[1] = new Turret(this, 4, 10); // place a tower for testing purposes
         /**
          * reference to the menu object
          * @type {Menu}
@@ -263,41 +259,65 @@ function Game(canvas, document, window) {
      */
     this.update = function() {
         if (this.internal.lives > 0) {
-            // jQuery trigger the game:tick custom event
-            $(document).trigger("game:tick", [this]);
             // calculate the currently hovered tile's coordinates
             this.hoveredTile.x = (mouse.x-(mouse.x%w))/w;
             this.hoveredTile.y = (mouse.y-(mouse.y%w))/w;
+
+            ////////////////////////////////////////////////////////////////////////////////////////
+            // define these variables inside this function as they have to be updated every time! //
+            ////////////////////////////////////////////////////////////////////////////////////////
+
             /**
              * shorthand for list of all creeps
              * @type {Array}
              */
-            var creeps = this.internal.creeps;
-            for (var i = 0; i < creeps.length; i++) { // update position of all creeps
-                if (creeps[i].spawned) { // don't try to update deleted creeps
-                    creeps[i].update();
-                }
-            };
+            var creeps = this.internal.creeps,
             /**
-             * shorthand for list of all turrets
-             * @type {Array}
+             * shorthand for the wave object
+             * @type {Wave}
              */
-            var turrets = this.internal.turrets;
-            for (var i = 0; i < turrets.length; i++) { // update all turrets (e.g. try to target a creep and shoot)
-                turrets[i].update();
-            };
-
+                wave   = this.internal.wave,
             /**
              * shorthand for list of all bullets
              * @type {Array}
              */
-            var bullets = this.internal.bullets;
+                bullets = this.internal.bullets,
+            /**
+             * shorthand for list of all turrets
+             * @type {Array}
+             */
+                turrets = this.internal.turrets;
+
+
+            if (!wave.spawning) { // if wave has just started to spawn, no creep is active --> this would mess it up
+                wave.active = false; // false if there still are creeps (but only if wave has not just begun to spawn enemies)
+            }
+
+            for (var i = 0; i < creeps.length; i++) { // update position of all creeps
+                if (creeps[i].spawned) { // don't try to update deleted creeps
+                    creeps[i].update();
+                    wave.active = true; // if there is an active creep, the wave is not finished yet
+                }
+            };
+
+            if (!wave.active) { // if the wave is finished clean up all the garbage
+                // don't use shorthand here because we want to reset the original values and not the aliases!
+                this.internal.creeps = [];  // reset creeps array
+                this.internal.bullets = []; // reset bullets array
+            }
+
+            for (var i = 0; i < turrets.length; i++) { // update all turrets (e.g. try to target a creep and shoot)
+                turrets[i].update();
+            };
+
             for (var i = 0; i < bullets.length; i++) {  // for every bullet...
                 if (bullets[i].active) {
                     bullets[i].update(); // update all bullets (move them and check for collisions)
                     for (var j = 0; j < creeps.length; j++) { // every bullet should look loop through all enemies and...
-                        if (collides(bullets[i], creeps[j])) { // ... check if they collide
-                            bullets[i].hit(creeps[j]); // call the hit function (every type of bullet may have their own one)
+                        if (creeps[j].spawned) { // only check collisions for creeps that are still living
+                            if (collides(bullets[i], creeps[j])) { // ... check if they collide
+                                bullets[i].hit(creeps[j]); // call the hit function (every type of bullet may have their own one)
+                            }
                         }
                     };
                 }
@@ -313,33 +333,50 @@ function Game(canvas, document, window) {
      * render the entire logic
      */
     this.render = function() {
-        this.stage.clearRect(0, 0, this.width, this.height); // make canvas white again to draw something new onto it
-        this.bg_map.render(); // render the tiles
-        if (this.debug.highlightPath) this.bg_map.highlightPath(); // highlight the path (rather for testing purposes)
+
+        ////////////////////////////////////////////////////////////////////////////////////////
+        // define these variables inside this function as they have to be updated every time! //
+        ////////////////////////////////////////////////////////////////////////////////////////
+
         /**
-         * shorthand for list of creeps to be rendered
+         * shorthand for list of all creeps
          * @type {Array}
          */
-        var creeps = this.internal.creeps;
+        var creeps = this.internal.creeps,
+        /**
+         * shorthand for the wave object
+         * @type {Wave}
+         */
+            wave   = this.internal.wave,
+        /**
+         * shorthand for list of all bullets
+         * @type {Array}
+         */
+            bullets = this.internal.bullets,
+        /**
+         * shorthand for list of all turrets
+         * @type {Array}
+         */
+            turrets = this.internal.turrets;
+
+        this.stage.clearRect(0, 0, this.width, this.height); // make canvas white again to draw something new onto it
+
+        this.bg_map.render(); // render the tiles
+
+        if (this.debug.highlightPath) {
+            this.bg_map.highlightPath(); // highlight the path (rather for testing purposes)
+        }
+
         for (var i = 0; i < creeps.length; i++) { // update position of all creeps
             if (creeps[i].spawned) { // don't try to render deleted creeps
                 creeps[i].render();
             }
         };
-        /**
-         * shorthand for list of all turrets
-         * @type {Array}
-         */
-        var turrets = this.internal.turrets;
+
         for (var i = 0; i < turrets.length; i++) { // render all turrets
             turrets[i].render();
         };
 
-        /**
-         * shorthand for list of all bullets
-         * @type {Array}
-         */
-        var bullets = this.internal.bullets;
         for (var i = 0; i < bullets.length; i++) { // render all bullets
             if (bullets[i].active) {
                 bullets[i].render();
@@ -347,6 +384,7 @@ function Game(canvas, document, window) {
         };
 
         this.bg_map.highlightTile(this.hoveredTile); // highlight the hovered tile
+
         this.menu.render(); // render the menu to display options, infos, etc.
     }
 
@@ -447,6 +485,16 @@ function Game(canvas, document, window) {
 
     function Wave(game, creepList) {
         /**
+         * indicates whether there are still enemies (if there are, no new wave can be initiated)
+         * @type {Boolean}
+         */
+        this.active = true;
+        /**
+         * indicates whether wave is still spawning enemies
+         * @type {Boolean}
+         */
+        this.spawning = true;
+        /**
          * shorthand for the list of creeps
          * @type {Array}
          */
@@ -463,24 +511,29 @@ function Game(canvas, document, window) {
                 }
             };
         };
+
+        var _this = this,
         /**
          * calls the spawnCreep function every second to spawn a new creep
          * @type {Interval}
          */
-        var creepSpawner = window.setInterval(spawnCreep, 1000);
+            creepSpawner = window.setInterval(function(){
+                _this.spawnCreep(); // call it like that because within a setInterval function, this refers to window
+            }, 1000),
         /**
          * counter used to iterate through the list of all creeps
          * @type {Number}
          */
-        var i = 0;
+            i = 0;
         /**
          * spawns the "i"th creep of the game.internal.creeps Array until there is none left --> then clear the timer (creepSpawner)
          */
-        function spawnCreep(){
+        this.spawnCreep = function(){
             creeps[i].spawn();
             i++;
             if (creeps[i] === undefined) { // if there is no more creep to spawn...
                 window.clearInterval(creepSpawner); // ... stop the timer
+                this.spawning = false; // wave is not spawning enemies anymore
             }
         }
     }
@@ -841,8 +894,6 @@ function Game(canvas, document, window) {
          * @param  {[type]} creep creep that is hit
          */
         this.hit = function(creep) {
-            console.log("hit() has been called");
-            console.log(creep);
             creep.lives -= this.power; // reduce the creep's lives
             this.active  = false; // remove the bullet
         }
@@ -852,13 +903,13 @@ function Game(canvas, document, window) {
      * @param  {Array} creeps information how many of which type of creep to send in (e.g. [[Creep,10],[Creep,5]])
      */
     this.callNewWave = function(creeps) {
-        /**
-         * shorthand for this.internal.wave
-         * @type {Array}
-         */
-        var waves = this.internal.wave;
-
-        waves[waves.length] = new Wave(this, creeps); // initiate a new wave
+        if (!this.internal.wave.active) { // if the current wave is finished...
+            this.internal.wave = new Wave(this, creeps); // initiate a new wave
+        }
+        else {
+            alert("Shouldn't you get rid of these enemies first?");
+        }
+        
     }
 
     //////////

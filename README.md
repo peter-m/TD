@@ -29,6 +29,5 @@ state of affairs:
 
 to do:
 -----
-* add turrets
 * add further keyboard input support
 * improve the way creeps are moving
