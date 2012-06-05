@@ -10,19 +10,21 @@ body {
 #game,#menu {
     float: left;
 }
-#menu, input[type="button"] {
+#menu, input[type="button"], td, th {
     -moz-box-shadow:inset 0px 1px 0px 0px #ffffff;
     -webkit-box-shadow:inset 0px 1px 0px 0px #ffffff;
     box-shadow:inset 0px 1px 0px 0px #ffffff;
     background-color:#ededed;
     border:1px solid #dcdcdc;
-    display:inline-block;
     font-family:arial;
     font-size:15px;
     font-weight:bold;
     padding:6px 24px;
     text-decoration:none;
     text-shadow:1px 1px 0px #ffffff;
+}
+#menu, input[type="button"] {
+    display:inline-block;
 }
 #menu div {
     margin: .2em;
