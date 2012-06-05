@@ -2,19 +2,6 @@
     margin:0;
     padding:0;
 }
-
-#game, #menu {
-    width:100%;
-}
-
-@media only screen and (min-width: 1001px) {
-    #game,#menu {
-        float: left;
-    }
-    #menu {
-        width:20%;
-    }
-    #game {
-        width:80%;
-    }
+#game,#menu {
+    float: left;
 }

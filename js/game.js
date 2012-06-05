@@ -164,7 +164,17 @@ function Game(canvas, document, window) {
          * stores references to all the creeps
          * @type {Array}
          */
-        creeps: []
+        creeps: [],
+        /**
+         * stores references to all the turrets
+         * @type {Array}
+         */
+        turrets: [],
+        /**
+         * stores references to all the bullets
+         * @type {Array}
+         */
+        bullets: []
     };
     /**
      * stores some variables for debugging
@@ -175,13 +185,23 @@ function Game(canvas, document, window) {
          * should the path be highlighted or not?
          * @type {Boolean}
          */
-        highlightPath: false
+        highlightPath: false,
+        /**
+         * should a health bar be indicated above creeps?
+         * @type {Boolean}
+         */
+        healthBar: true
     }
     /**
      * stores the coordinates of the currently hovered tile
      * @type {Object}
      */
     this.hoveredTile = {}
+    /**
+     * shorthand for gutterWidth
+     * @type {Number}
+     */
+    var w = this.map.gutterWidth;
 
     /**
      * we want to position text as we are used to...
@@ -215,6 +235,7 @@ function Game(canvas, document, window) {
          */
         this.bg_map = new Map(this);
         this.internal.wave[0] = new Wave(this,[[Creep,10],[Creep,5]]); // initiate a new wave
+        this.internal.turrets[0] = new Turret(this, 2, 2); // place a tower for testing purposes
         /**
          * reference to the menu object
          * @type {Menu}
@@ -241,19 +262,51 @@ function Game(canvas, document, window) {
      * game logic like updating lives, etc. goes here
      */
     this.update = function() {
-        // calculate the currently hovered tile's coordinates
-        this.hoveredTile.x = Math.floor(mouse.x / (2*this.map.gutterWidth));
-        this.hoveredTile.y = Math.floor(mouse.y / (2*this.map.gutterWidth));
-        /**
-         * shorthand for list of all creeps
-         * @type {Array}
-         */
-        var creeps = this.internal.creeps;
-        for (var i = 0; i < creeps.length; i++) { // update position of all creeps
-            if (creeps[i] !== undefined) { // don't try to update deleted creeps
-                creeps[i].update();
-            }
-        };
+        if (this.internal.lives > 0) {
+            // jQuery trigger the game:tick custom event
+            $(document).trigger("game:tick", [this]);
+            // calculate the currently hovered tile's coordinates
+            this.hoveredTile.x = (mouse.x-(mouse.x%w))/w;
+            this.hoveredTile.y = (mouse.y-(mouse.y%w))/w;
+            /**
+             * shorthand for list of all creeps
+             * @type {Array}
+             */
+            var creeps = this.internal.creeps;
+            for (var i = 0; i < creeps.length; i++) { // update position of all creeps
+                if (creeps[i].spawned) { // don't try to update deleted creeps
+                    creeps[i].update();
+                }
+            };
+            /**
+             * shorthand for list of all turrets
+             * @type {Array}
+             */
+            var turrets = this.internal.turrets;
+            for (var i = 0; i < turrets.length; i++) { // update all turrets (e.g. try to target a creep and shoot)
+                turrets[i].update();
+            };
+
+            /**
+             * shorthand for list of all bullets
+             * @type {Array}
+             */
+            var bullets = this.internal.bullets;
+            for (var i = 0; i < bullets.length; i++) {  // for every bullet...
+                if (bullets[i].active) {
+                    bullets[i].update(); // update all bullets (move them and check for collisions)
+                    for (var j = 0; j < creeps.length; j++) { // every bullet should look loop through all enemies and...
+                        if (collides(bullets[i], creeps[j])) { // ... check if they collide
+                            bullets[i].hit(creeps[j]); // call the hit function (every type of bullet may have their own one)
+                        }
+                    };
+                }
+            };
+        }
+        else { // if this.internal.lives <= 0
+            this.pause(); // stop game
+            alert("game over - you have scored "+this.internal.score+" points!");
+        }
     }
 
     /**
@@ -269,10 +322,31 @@ function Game(canvas, document, window) {
          */
         var creeps = this.internal.creeps;
         for (var i = 0; i < creeps.length; i++) { // update position of all creeps
-            if (creeps[i] !== undefined) { // don't try to render deleted creeps
+            if (creeps[i].spawned) { // don't try to render deleted creeps
                 creeps[i].render();
             }
         };
+        /**
+         * shorthand for list of all turrets
+         * @type {Array}
+         */
+        var turrets = this.internal.turrets;
+        for (var i = 0; i < turrets.length; i++) { // render all turrets
+            turrets[i].render();
+        };
+
+        /**
+         * shorthand for list of all bullets
+         * @type {Array}
+         */
+        var bullets = this.internal.bullets;
+        for (var i = 0; i < bullets.length; i++) { // render all bullets
+            if (bullets[i].active) {
+                bullets[i].render();
+            }
+        };
+
+        this.bg_map.highlightTile(this.hoveredTile); // highlight the hovered tile
         this.menu.render(); // render the menu to display options, infos, etc.
     }
 
@@ -289,13 +363,19 @@ function Game(canvas, document, window) {
          * reference to the DOM element displaying the lives
          * @type {Object}
          */
-        this.lives = document.getElementById("lives");
+        this.lives = document.getElementById("lives");        
+        /**
+         * reference to the DOM element displaying the score
+         * @type {Object}
+         */
+        this.score = document.getElementById("score");
 
         /**
          * display the information
          */
         this.render = function(){
             this.lives.innerHTML = game.internal.lives+''; // +'' converts Number to String
+            this.score.innerHTML = game.internal.score+''; // +'' converts Number to String
         }
     }
 
@@ -304,12 +384,6 @@ function Game(canvas, document, window) {
      * @param {Object} game reference to the current game instance (Map class needs information about the tiles and access to the canvas 2D context)
      */
     function Map(game) {
-        /**
-         * shorthand for gutterWidth
-         * @type {Number}
-         */
-        var w = game.map.gutterWidth;
-
         /**
          * renders all the tiles
          */
@@ -352,12 +426,21 @@ function Game(canvas, document, window) {
             var path = game.map.path;
                 
             game.stage.save();
-                game.stage.fillStyle = "#C0F";
+                game.stage.fillStyle = "#000";
                 game.stage.globalAlpha = 0.6;
                 for (var i = 0; i < path.length; i++) { //for every part of the path...
                     game.stage.fillRect(path[i].y*w,path[i].x*w,w,w); // ... draw a rect
-                    game.drawText("text", i, path[i].y*w + 2, path[i].x*w + 2, "#000"); // ... and add the index of it
+                    game.stage.font = game.default.font.text; // set font to default font
+                    game.stage.fillText(i,path[i].y*w + 2, path[i].x*w + 2); // ... and add the index of it
                 };
+            game.stage.restore();
+        }
+
+        this.highlightTile = function(tile){
+            game.stage.save();
+                game.stage.fillStyle = "#C0F";
+                game.stage.globalAlpha = 0.6;
+                game.stage.fillRect(tile.x*w,tile.y*w,w,w); // ... draw a rect
             game.stage.restore();
         }
     }
@@ -370,7 +453,14 @@ function Game(canvas, document, window) {
         var creeps = game.internal.creeps;
         for (var i = 0; i < creepList.length; i++) { // for every group of creeps...
             for (var j = 0; j < creepList[i][1]; j++) { // ...spawn given amount of creeps
-                creeps[creeps.length] = new creepList[i][0](game); // spawn the given class of creep
+                switch (creepList[i][0]) {
+                    case "normal":
+                        creeps[creeps.length] = new Creep(game, 100, 4);
+                        break;
+                    default:
+                        creeps[creeps.length] = new Creep(game, 100, 4);
+                        break;
+                }
             };
         };
         /**
@@ -395,7 +485,7 @@ function Game(canvas, document, window) {
         }
     }
 
-    function Creep(game) {
+    function Creep(game, lives, speed) {
         /**
          * counter - stands for the "i"th point of the path the creep is on
          * @type {Number}
@@ -435,7 +525,7 @@ function Game(canvas, document, window) {
          * how fast the creep is moving
          * @type {Number}
          */
-        this.speed   = 4;
+        this.speed   = speed;
         /**
          * for resetting (stores the original speed)
          * @type {Number}
@@ -454,47 +544,80 @@ function Game(canvas, document, window) {
          * @type {Boolean}
          */
         this.spawned = false;
+        /**
+         * how much can this creep take?
+         * @type {Number}
+         */
+        this.lives = lives;
+        /**
+         * storing number of maximum lives
+         * @type {Number}
+         */
+        this._lives = this.lives;
+        /**
+         * killing this creep gives the player the set amount of points
+         * @type {Number}
+         */
+        this.scoreVal = this._lives * this._speed;
+        /**
+         * width of the creep - needed to calculate collisions
+         * @type {Number}
+         */
+        this.width = w/2;
+        /**
+         * height of the creep - needed to calculate collisions
+         * @type {Number}
+         */
+        this.height= this.width;
 
         /**
-         * recalculates the position, etc. (more to follow?)
+         * recalculates the position of the creep and checks on which tile it is (--> adjusts speed) and checks whether it's been killed
          */
         this.update  = function(){
-            if(this.spawned) {
-                var type = tiles.input[Math.floor(this.x)][Math.floor(this.y)]; // strip out everything after the coordinates' comma to get decimal numbers and check what type of tile it is in order to adjust speed, etc.
-                switch(type) {
-                    case 2:
-                        this.speed = this._speed/2; // slow down if type == 2
-                        break;
-                    default:
-                        this.speed = this._speed; // do nothing(/reset to default) if there's nothing special
-                        break;
-                }
+            if (this.lives <= 0) { // if creep has been killed...
+                game.internal.score += this.scoreVal; // give the player his reward
+                this.spawned = false; // it is dead --> it doesn't have to be rendered any more
+                return; // we don't need to calculate anything anymore
+            }
 
-                // this block of code is kind of weird because of the map's nature x and y are swapped
-                // moves creep dependent on their speed (it's "/w" because the creep's coordinates are not in pixels --> don't move 2 fields when speed = 2)
-                if ((this.next.x - this.x) < 0) { // if we are moving right
-                    this.x -= this.speed/w;
-                } 
-                if ((this.next.x - this.x) > 0) { // if we are moving left
-                    this.x += this.speed/w;
-                }
-                if ((this.next.y - this.y) < 0) { // if we are moving up
-                    this.y -= this.speed/w;
-                }
-                if ((this.next.y - this.y) > 0) { // if we are moving down
-                    this.y += this.speed/w;
-                }
+            /**
+             * shorthand for the tile value of the tile which is currently walked on
+             * @type {Number}
+             */
+            var type = tiles.input[Math.floor(this.x)][Math.floor(this.y)]; // strip out everything after the coordinates' comma to get decimal numbers and check what type of tile it is in order to adjust speed, etc.
+            switch(type) {
+                case 2:
+                    this.speed = this._speed/2; // slow down if type == 2
+                    break;
+                default:
+                    this.speed = this._speed; // do nothing(/reset to default) if there's nothing special
+                    break;
+            }
 
-                if ((this.x <= this.next.x+tolerance && this.x >= this.next.x-tolerance) && (this.y <= this.next.y+tolerance && this.y >= this.next.y-tolerance)) { // if next point has been reached
-                    i++; // increase counter by one
-                    if (path[i+1] !== undefined) { // check if there is a next point and if so ...
-                        this.next.x = path[i+1].x; // ... set next.x and next.y to the ones of the next point
-                        this.next.y = path[i+1].y;
-                    }
-                    else { // if there is no point left, creep has reached the end
-                        this.spawned = false; // remove it
-                        game.internal.lives--; // remove one life
-                    }
+            // this block of code is kind of weird because of the map's nature x and y are swapped
+            // moves creep dependent on their speed (it's "/w" because the creep's coordinates are not in pixels --> don't move 2 fields when speed = 2)
+            if ((this.next.x - this.x) < 0) { // if we are moving right
+                this.x -= this.speed/w;
+            } 
+            if ((this.next.x - this.x) > 0) { // if we are moving left
+                this.x += this.speed/w;
+            }
+            if ((this.next.y - this.y) < 0) { // if we are moving up
+                this.y -= this.speed/w;
+            }
+            if ((this.next.y - this.y) > 0) { // if we are moving down
+                this.y += this.speed/w;
+            }
+
+            if ((this.x <= this.next.x+tolerance && this.x >= this.next.x-tolerance) && (this.y <= this.next.y+tolerance && this.y >= this.next.y-tolerance)) { // if next point has been reached
+                i++; // increase counter by one
+                if (path[i+1] !== undefined) { // check if there is a next point and if so ...
+                    this.next.x = path[i+1].x; // ... set next.x and next.y to the ones of the next point
+                    this.next.y = path[i+1].y;
+                }
+                else { // if there is no point left, creep has reached the end
+                    this.spawned = false; // remove it
+                    game.internal.lives--; // remove one life
                 }
             }
         }
@@ -502,10 +625,15 @@ function Game(canvas, document, window) {
          * display the creep
          */
         this.render  = function(){
-            if(this.spawned) { // only display if it's spawned
+            game.stage.save();
+                game.stage.fillStyle = "#C0F";
+                game.stage.fillRect(this.y*w + this.width/2, this.x*w + this.height/2, this.width, this.height); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
+            game.stage.restore();
+
+            if (game.debug.healthBar) {
                 game.stage.save();
-                    game.stage.fillStyle = "#C0F";
-                    game.stage.fillRect(this.y*w + w/4, this.x*w + w/4, w/2, w/2); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
+                    game.stage.fillStyle = "#480";
+                    game.stage.fillRect(this.y*w, this.x*w, this.lives/this._lives*w, w/8); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
                 game.stage.restore();
             }
         }
@@ -517,31 +645,237 @@ function Game(canvas, document, window) {
         }
     }
 
+    /**
+     * Turret class
+     * @param {Object} game reference to the game object (needed to access global variables like creeps)
+     * @param {Number} x    storing the x-position of the turret (not in pixels, but in "grids")
+     * @param {Number} y    storing the y-position of the turret (not in pixels, but in "grids")
+     */
+    function Turret(game,x,y) {
+        /**
+         * storing the x-position of the turret (not in pixels, but in "grids")
+         * @type {Number}
+         */
+        this.x = x;
+        /**
+         * storing the y-position of the turret (not in pixels, but in "grids")
+         * @type {Number}
+         */
+        this.y = y;
+        /**
+         * radius in which enemies can be targeted
+         * @type {Number}
+         */
+        this.range = 5;
+        /**
+         * list of creeps that may be targeted
+         * @type {Array}
+         */
+        this.creepsInRange = [];
+        /**
+         * how often will the tower shoot per second
+         * @type {Number}
+         */
+        this.speed = 5;
+        /**
+         * how long will it take until the tower can shoot again
+         * @type {Number}
+         */
+        this.coolDown = 0;
+        /**
+         * how many lives will take away
+         * @type {Number}
+         */
+        this.attackPower = 20;
+
+        /**
+         * try to target a creep and shoot/handle cooldown
+         */
+        this.update = function() {
+            this.creepsInRange = lookForEnemies(game.internal.creeps, this); // look for creeps around the tower
+
+            if ((this.coolDown <= 0) && (this.creepsInRange[0]) !== undefined) {
+                // go shoot a creep
+                this.shoot(Bullet, this.creepsInRange[0]);
+                // reset the timer --> tower should only shoot "this.speed" times every second 
+                // don't use 1000 here because the update function will not be called 1000 times a second, but only "FPS" times per second
+                this.coolDown = game.FPS/this.speed;
+            }
+            else {
+                this.coolDown--;
+            }
+        }
+        /**
+         * draws the tower on the stage
+         */
+        this.render = function() {
+            game.stage.save();
+                game.stage.fillStyle = "#C00";
+                game.stage.fillRect(this.y*w, this.x*w, w, w); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
+            game.stage.restore();
+        }
+        /**
+         * launches a bullet in the creep's direction
+         * @param  {Bullet} Bullet type of bullet to be shot - atm there's only the basic Bullet class
+         * @param  {Creep}  creep  creep to be targeted
+         */
+        this.shoot = function(bullet, creep) {
+            var bulletList = game.internal.bullets;
+            bulletList[bulletList.length] = new bullet(game, creep, this.x + .5, this.y + .5, this.attackPower);
+        }
+        /**
+         * look for enemies within range
+         * @param  {Array}  creepList list of all the creeps currently spawned
+         * @param  {Number} turret    reference to the itself (the tower object)
+         * @return {Array}            list of creeps within range of the tower
+         */
+        function lookForEnemies(creepList, turret) {
+            var creepsInRange = [];
+
+            for (var i = 0; i < creepList.length; i++) { // for every creep...
+                /**
+                 * reference to the "i"th creep
+                 * @type {Creep}
+                 */
+                var creep = creepList[i];
+
+                if (creep.spawned) { // don't calculate for dead/... creeps
+                    if (Math.sqrt(Math.pow((creep.x - turret.x),2)+Math.pow((creep.y - turret.y),2)) < turret.range) { // check if distance between the position of the current creep and the turret is less that the turrets range
+                        creepsInRange.push(creep);
+                    }
+                }
+            };
+            return creepsInRange;
+        }
+    }
+    /**
+     * Bullet class
+     * @param {Object} game   reference to the game object
+     * @param {Object} target should store have a "x" and a "y" value
+     * @param {Number} x      x-coordinate to start from
+     * @param {Number} y      y-coordinate to start from
+     * @param {Number} power  how much damage does it deal
+     * @param {Number} speed  how fast does it move
+     */
+    function Bullet(game, target, x, y, power) {
+        /**
+         * x-coordinate to start from
+         * @type {Number}
+         */
+        this.x = x;
+        /**
+         * y-coordinate to start from
+         * @type {Number}
+         */
+        this.y = y;
+        /**
+         * distance to travel on the x-axis to reach the target
+         * @type {Number}
+         */
+        this.dx = target.x - this.x;
+        /**
+         * distance to travel on the y-axis to reach the target
+         * @type {Number}
+         */
+        this.dy = target.y - this.y;
+        /**
+         * distance to travel until the target is reached
+         * @type {Number}
+         */
+        this.distance = Math.sqrt(Math.pow(this.dx,2)+Math.pow(this.dy,2));
+        /**
+         * how fast does it move
+         * @type {Number}
+         */
+        this.speed = .3;
+        /**
+         * x value of vector for moving the bullet
+         * @type {Number}
+         */
+        this.vx = this.dx / this.distance * this.speed;
+        /**
+         * y value of vector for moving the bullet
+         * @type {Number}
+         */
+        this.vy = this.dy / this.distance * this.speed;
+        /**
+         * how much damage does it deal
+         * @type {Number}
+         */
+        this.power = power;
+        /**
+         * width of the bullet
+         * @type {Number}
+         */
+        this.width = w/8;
+        /**
+         * height of the bullet
+         * @type {Number}
+         */
+        this.height= this.width;
+        /**
+         * indicates whether this bullet is still flying/whatever or has already hit an enemy
+         * @type {Boolean}
+         */
+        this.active = true;
+
+        /**
+         * calculates bullet's position and checks for collision, etc.
+         */
+        this.update = function(){
+            // move the bullet
+            this.x += this.vx;
+            this.y += this.vy;
+        }
+        /**
+         * draws the bullet on the stage
+         */
+        this.render = function(){
+            game.stage.save();
+                game.stage.fillStyle = "#F00";
+                game.stage.fillRect(this.y*w-this.width/2, this.x*w-this.height/2, this.width, this.height); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
+            game.stage.restore();
+        }
+        /**
+         * function to be called when a creep is hit
+         * @param  {[type]} creep creep that is hit
+         */
+        this.hit = function(creep) {
+            console.log("hit() has been called");
+            console.log(creep);
+            creep.lives -= this.power; // reduce the creep's lives
+            this.active  = false; // remove the bullet
+        }
+    }
+    /**
+     * API to send in a new wave
+     * @param  {Array} creeps information how many of which type of creep to send in (e.g. [[Creep,10],[Creep,5]])
+     */
+    this.callNewWave = function(creeps) {
+        /**
+         * shorthand for this.internal.wave
+         * @type {Array}
+         */
+        var waves = this.internal.wave;
+
+        waves[waves.length] = new Wave(this, creeps); // initiate a new wave
+    }
+
     //////////
     // MISC //
     //////////
 
     /**
-     * draw text on the stage
-     * @param  {String} type  "heading"|"text" --> different font settings (style+size) will be applied
-     * @param  {String} text  text to be displayed
-     * @param  {Number} x     x-coordinate for displaying
-     * @param  {Number} y     y-coordinate for displaying
-     * @param  {String} color color to be displayed in
+     * checks whether two (rectangular) objects collide or not (objects must have x, y and width, height properties!)
+     * @param  {Object}  a first object
+     * @param  {Object}  b second object
+     * @return {Boolean}   do they collide or not?
      */
-    this.drawText = function(type,text,x,y,color) {
-        this.stage.save();
-            this.stage.fillStyle = color;
-            switch (type) {
-                case "heading":
-                    this.stage.font = this.default.font.heading;
-                    break;
-                case "text":
-                    this.stage.font = this.default.font.text;
-                    break;
-            }
-            this.stage.fillText(text,x,y);
-        this.stage.restore();
+    function collides(a,b) {
+        return  a.x*w < b.x*w + b.width &&
+                a.x*w + a.width > b.x*w &&
+                a.y*w < b.y*w + b.height &&
+                a.y*w + a.height > b.y*w;
     }
 
     this.init(); // initiate the whole game
@@ -586,6 +920,17 @@ k.up("alt p", function(){
 ///////////////////////////////////////////////
 // add some settings to be made via the menu //
 ///////////////////////////////////////////////
-document.getElementById("highlightPath").addEventListener("click",function(){
-    game.debug.highlightPath = !game.debug.highlightPath; // toggle the highlightPath option
-}, false);
+$("#highlightPath").on("click",function(){
+    game.debug.highlightPath = this.checked; // toggle the highlightPath option
+});
+$("#showHealthBars").attr("checked","checked").on("click",function(){ // by default make it checked
+    game.debug.healthBar = this.checked; // toggle the healthBar option
+});
+
+////////////////////
+// basic commands //
+////////////////////
+
+$("#callNewWave").on("click",function(){
+    game.callNewWave([["normal",20]]);
+});
