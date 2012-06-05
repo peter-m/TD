@@ -95,44 +95,6 @@ function Game(canvas, document, window) {
      */
     this.map.path = astar.search(this.map.tiles.nodes, this.map.startingPoint, this.map.endingPoint);
     /**
-     * defaults(=settings) are stored here
-     * @type {Object}
-     */
-    this.default = {
-        /**
-         * default colors for various purposes
-         * @type {Object}
-         */
-        color: {
-            /**
-             * default color for text
-             * @type {String}
-             */
-            text:       "#000",
-            /**
-             * default color for backgrounds
-             * @type {String}
-             */
-            background: "#00A"
-        },
-        /**
-         * font settings for various purposes
-         * @type {Object}
-         */
-        font: {
-            /**
-             * font settings for headings
-             * @type {String}
-             */
-            heading: "24px Helvetica",
-            /**
-             * font settings for normal text
-             * @type {String}
-             */
-            text:    "12px Helvetica"
-        }
-    };
-    /**
      * storing all the games infos like resources, lives, ...
      * @type {Object}
      */
@@ -193,7 +155,7 @@ function Game(canvas, document, window) {
      */
     this.hoveredTile = {}
     /**
-     * shorthand for gutterWidth
+     * global shorthand for gutterWidth
      * @type {Number}
      */
     var w = this.map.gutterWidth;
@@ -237,6 +199,8 @@ function Game(canvas, document, window) {
          * @type {Menu}
          */
         this.menu = new Menu(this, document);
+
+        this.menu.hint("starting the game - how about placing a tower?");
     }
 
     /**
@@ -244,6 +208,7 @@ function Game(canvas, document, window) {
      */
     this.pause  = function() {
         this.state = "paused";
+        this.menu.hint("game is paused(/stopped)");
         window.clearInterval(this.ticker);
     }
 
@@ -252,6 +217,7 @@ function Game(canvas, document, window) {
      */
     this.resume = function() {
         startGameLoop(this);
+        this.menu.hint("resuming game!");
     }
 
     /**
@@ -407,6 +373,11 @@ function Game(canvas, document, window) {
          * @type {Object}
          */
         this.score = document.getElementById("score");
+        /**
+         * reference to the DOM element displaying hints
+         * @type {Object}
+         */
+        this.hints = document.getElementById("hints");
 
         /**
          * display the information
@@ -414,6 +385,13 @@ function Game(canvas, document, window) {
         this.render = function(){
             this.lives.innerHTML = game.internal.lives+''; // +'' converts Number to String
             this.score.innerHTML = game.internal.score+''; // +'' converts Number to String
+        }
+        /**
+         * shows a hint to the player
+         * @type {[type]}
+         */
+        this.hint = function(msg){
+            this.hints.innerHTML = msg+''; // +'' converts Number to String
         }
     }
 
@@ -468,7 +446,7 @@ function Game(canvas, document, window) {
                 game.stage.globalAlpha = 0.6;
                 for (var i = 0; i < path.length; i++) { //for every part of the path...
                     game.stage.fillRect(path[i].y*w,path[i].x*w,w,w); // ... draw a rect
-                    game.stage.font = game.default.font.text; // set font to default font
+                    game.stage.font = "12px Helvetica";
                     game.stage.fillText(i,path[i].y*w + 2, path[i].x*w + 2); // ... and add the index of it
                 };
             game.stage.restore();
@@ -543,52 +521,47 @@ function Game(canvas, document, window) {
          * counter - stands for the "i"th point of the path the creep is on
          * @type {Number}
          */
-        var i    = 0,
+        var i        = 0,
         /**
          * shorthand for tiles
          * @type {Object}
          */
-        tiles    = game.map.tiles,
+            tiles     = game.map.tiles,
         /**
          * shorthand for path
          * @type {Array}
          */
-        path     = game.map.path,
-        /**
-         * shorthand for gutterWidth
-         * @type {Number}
-         */
-        w        = game.map.gutterWidth,
+            path      = game.map.path,
         /**
          * tolerance whether a point has been reached or not (if set to 0 the creep has to be exactly on the point - this will never be the case though)
          * @type {Number}
          */
-        tolerance= 10/w;
+            tolerance = 10/w;
         /**
          * x-coordinate, is _not_ in pixels, but in squares (e.g. 3 squares from the left)
          * @type {Number}
          */
-        this.x       = path[i].x;
+        this.x        = path[i].x;
         /**
          * y-coordinate, is _not_ in pixels, but in squares (e.g. 2 squares from the top)
          * @type {Number}
          */
-        this.y       = path[i].y;
+        this.y        = path[i].y;
         /**
          * how fast the creep is moving
          * @type {Number}
          */
-        this.speed   = speed;
+        this.speed    = speed;
         /**
          * for resetting (stores the original speed)
          * @type {Number}
          */
-        this._speed  = this.speed;
+        this._speed   = this.speed;
         /**
          * stores the coordinates of the next point the creep moves towards to
          * @type {Object}
          */
-        this.next    = {
+        this.next     = {
             "x": path[i+1].x,
             "y": path[i+1].y
         };
@@ -596,17 +569,17 @@ function Game(canvas, document, window) {
          * indicates whether the creep is spawned (--> moves) or not (has not yet been spawned, has reached the end or has been killed) 
          * @type {Boolean}
          */
-        this.spawned = false;
+        this.spawned  = false;
         /**
          * how much can this creep take?
          * @type {Number}
          */
-        this.lives = lives;
+        this.lives    = lives;
         /**
          * storing number of maximum lives
          * @type {Number}
          */
-        this._lives = this.lives;
+        this._lives   = this.lives;
         /**
          * killing this creep gives the player the set amount of points
          * @type {Number}
@@ -616,17 +589,17 @@ function Game(canvas, document, window) {
          * width of the creep - needed to calculate collisions
          * @type {Number}
          */
-        this.width = w/2;
+        this.width    = w/2;
         /**
          * height of the creep - needed to calculate collisions
          * @type {Number}
          */
-        this.height= this.width;
+        this.height   = this.width;
 
         /**
          * recalculates the position of the creep and checks on which tile it is (--> adjusts speed) and checks whether it's been killed
          */
-        this.update  = function(){
+        this.update   = function(){
             if (this.lives <= 0) { // if creep has been killed...
                 game.internal.score += this.scoreVal; // give the player his reward
                 this.spawned = false; // it is dead --> it doesn't have to be rendered any more
@@ -898,18 +871,78 @@ function Game(canvas, document, window) {
             this.active  = false; // remove the bullet
         }
     }
+
+    //////////
+    // API  //
+    //////////
+
     /**
-     * API to send in a new wave
+     * send in a new wave
      * @param  {Array} creeps information how many of which type of creep to send in (e.g. [[Creep,10],[Creep,5]])
      */
     this.callNewWave = function(creeps) {
         if (!this.internal.wave.active) { // if the current wave is finished...
             this.internal.wave = new Wave(this, creeps); // initiate a new wave
+            this.menu.hint("a new wave is being launched");
         }
         else {
-            alert("Shouldn't you get rid of these enemies first?");
+            this.menu.hint("shouldn't you get rid of these enemies first?");
         }
-        
+    }
+
+    this.placeTower = function(type) {
+        /**
+         * shorthand for the turrets array
+         * @type {Array}
+         */
+        var turrets = this.internal.turrets,
+        /**
+         * shorthand for the array storing the tiles' type of the map
+         * @type {Array}
+         */
+            tiles = this.map.tiles.input,
+        /**
+         * shorthand for the y value of the currently hovered (=clicked) tile
+         * @type {Number}
+         */
+            x = this.hoveredTile.y,
+        /**
+         * shorthand for the x value of the currently hovered (=clicked) tile
+         * @type {Number}
+         */
+            y = this.hoveredTile.x;
+
+        if (tiles[x][y]===1) { // if hovered tile is a wall, we can place a tower there
+            /**
+             * by default we assume that the tile is occupied
+             * @type {Boolean}
+             */
+            var tileOccupied = false;
+
+            for (var i = 0; i < turrets.length; i++) { // loop through all turrets
+                if ((turrets[i].x == x) && (turrets[i].y == y)) { // and check if there already is one with these coordinates
+                    tileOccupied = true;
+                }
+            };
+
+            if (!tileOccupied) { // if you can place a tower on the desired coordinates
+                switch(type) {
+                    case "normal":
+                        turrets[turrets.length] = new Turret(this, x, y);
+                        break;
+                    default:
+                        turrets[turrets.length] = new Turret(this, x, y);
+                        break;
+                }
+                this.menu.hint("placed a tower at "+y+":"+x);
+            }
+            else { // if there is already another tower at this position
+                this.menu.hint("there is already another tower here!");
+            }
+        }
+        else { // if you try to place a tower on the road
+            this.menu.hint("you cannot place a tower here!");
+        }
     }
 
     //////////
@@ -984,4 +1017,8 @@ $("#showHealthBars").attr("checked","checked").on("click",function(){ // by defa
 
 $("#callNewWave").on("click",function(){
     game.callNewWave([["normal",20]]);
+});
+
+$(_game).on("click",function(){
+    game.placeTower("normal");
 });
