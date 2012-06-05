@@ -131,7 +131,18 @@ function Game(canvas, document, window) {
          * stores references to all the bullets
          * @type {Array}
          */
-        bullets: []
+        bullets: [],
+        /**
+         * how much does each turret cost
+         * @type {Object}
+         */
+        costs: {
+            /**
+             * the normal tower costs...
+             * @type {Array}
+             */
+            normal: [["wood", 100],["steel",100]]
+        }
     };
     /**
      * stores some variables for debugging
@@ -364,34 +375,58 @@ function Game(canvas, document, window) {
      */
     function Menu(game) {
         /**
+         * storing all the references to DOM elements
+         * @type {Object}
+         */
+        this.displays = {};
+        /**
          * reference to the DOM element displaying the lives
          * @type {Object}
          */
-        this.lives = document.getElementById("lives");        
+        this.displays.lives = document.getElementById("lives");        
         /**
          * reference to the DOM element displaying the score
          * @type {Object}
          */
-        this.score = document.getElementById("score");
+        this.displays.score = document.getElementById("score");
         /**
          * reference to the DOM element displaying hints
          * @type {Object}
          */
-        this.hints = document.getElementById("hints");
+        this.displays.hints = document.getElementById("hints");
+        /**
+         * storing references to resource displays
+         * @type {Object}
+         */
+        this.displays.resources = {};
+        /**
+         * reference to the DOM element displaying the amount of wood
+         * @type {Object}
+         */
+        this.displays.resources.wood  = document.getElementById("wood");
+        /**
+         * reference to the DOM element displaying the amount of steel
+         * @type {Object}
+         */
+        this.displays.resources.steel = document.getElementById("steel");
 
         /**
          * display the information
          */
         this.render = function(){
-            this.lives.innerHTML = game.internal.lives+''; // +'' converts Number to String
-            this.score.innerHTML = game.internal.score+''; // +'' converts Number to String
+            // updating lives and score
+            this.displays.lives.innerHTML = game.internal.lives+''; // +'' converts Number to String
+            this.displays.score.innerHTML = game.internal.score+''; // +'' converts Number to String
+            // updating resources
+            this.displays.resources.wood.innerHTML  = game.internal.resources.wood +''; // +'' converts Number to String
+            this.displays.resources.steel.innerHTML = game.internal.resources.steel+''; // +'' converts Number to String
         }
         /**
          * shows a hint to the player
-         * @type {[type]}
+         * @type {String}
          */
         this.hint = function(msg){
-            this.hints.innerHTML = msg+''; // +'' converts Number to String
+            this.displays.hints.innerHTML = msg+''; // +'' converts Number to String
         }
     }
 
@@ -595,13 +630,57 @@ function Game(canvas, document, window) {
          * @type {Number}
          */
         this.height   = this.width;
+        /**
+         * what will the player get when killing this creep?
+         * @type {Array}
+         */
+        this.gives    = [
+            /**
+             * drops 10 units of wood with a possibility of 90%
+             * @type {Array}
+             */
+            ["wood", 10, 90],
+            /**
+             * drops 50 units of steel with a possibility of 10%
+             * @type {Array}
+             */
+            ["steel", 90, 10]
+        ];
 
         /**
          * recalculates the position of the creep and checks on which tile it is (--> adjusts speed) and checks whether it's been killed
          */
         this.update   = function(){
             if (this.lives <= 0) { // if creep has been killed...
-                game.internal.score += this.scoreVal; // give the player his reward
+
+                /////////////////////////////////
+                // give the player his rewards //
+                /////////////////////////////////
+
+                game.internal.score += this.scoreVal;
+
+                for (var j = 0; j < this.gives.length; j++) { // for every element which can be dropped
+                    /**
+                     * shorthand for what it gives
+                     * @type {String}
+                     */
+                    var type        = this.gives[j][0],
+                    /**
+                     * shorthand for how much of [type] it gives
+                     * @type {Number}
+                     */
+                        amount      = this.gives[j][1],
+                    /**
+                     * shorthand for possibility that creep drops it
+                     * @type {[type]}
+                     */
+                        possibility = this.gives[j][2];
+
+                    if (Math.random() < possibility/100) { // for [possibility]% it will drop
+                        game.internal.resources[type] += amount; // add it to the resources
+                    }
+                };
+
                 this.spawned = false; // it is dead --> it doesn't have to be rendered any more
                 return; // we don't need to calculate anything anymore
             }
@@ -926,15 +1005,60 @@ function Game(canvas, document, window) {
             };
 
             if (!tileOccupied) { // if you can place a tower on the desired coordinates
-                switch(type) {
-                    case "normal":
-                        turrets[turrets.length] = new Turret(this, x, y);
-                        break;
-                    default:
-                        turrets[turrets.length] = new Turret(this, x, y);
-                        break;
+                /**
+                 * indicates whether enough resources are available
+                 * @type {Boolean}
+                 */
+                var resourcesAvailable = true;
+
+                for (var i = 0; i < this.internal.costs[type].length; i++) {
+                    /**
+                     * shorthand for the type of resource (e.g. "wood")
+                     * @type {String}
+                     */
+                    var resourceNeeded = this.internal.costs[type][i][0];
+                    /**
+                     * shorthand for the amount needed of it
+                     * @type {Number}
+                     */
+                    var amountNeeded   = this.internal.costs[type][i][1];
+
+                    if (this.internal.resources[resourceNeeded] < amountNeeded) { // if we don't have enough resources of any type needed, we can't build the tower
+                        resourcesAvailable = false;
+                    }
+                };
+
+                if (resourcesAvailable) {
+                    // place the desired tower
+                    switch(type) {
+                        case "normal":
+                            turrets[turrets.length] = new Turret(this, x, y);
+                            break;
+                        default:
+                            turrets[turrets.length] = new Turret(this, x, y);
+                            break;
+                    }
+                    // subtract the costs from the resources
+                    for (var i = 0; i < this.internal.costs[type].length; i++) {
+                        /**
+                         * shorthand for the type of resource (e.g. "wood")
+                         * @type {String}
+                         */
+                        var resourceNeeded = this.internal.costs[type][i][0];
+                        /**
+                         * shorthand for the amount needed of it
+                         * @type {Number}
+                         */
+                        var amountNeeded   = this.internal.costs[type][i][1];
+
+                        this.internal.resources[resourceNeeded] -= amountNeeded;
+                    }
+                    // signal the user that tower has been placed
+                    this.menu.hint("placed a tower at "+y+":"+x);
                 }
-                this.menu.hint("placed a tower at "+y+":"+x);
+                else { // if resources are not available
+                    this.menu.hint("you have to gather more resources to build this tower!");
+                }
             }
             else { // if there is already another tower at this position
                 this.menu.hint("there is already another tower here!");
