@@ -26,8 +26,3 @@ state of affairs:
         [1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,0,1]
 
     0 = path, 1 = wall, 2 = something that slows down enemies and has a higher cost (A* algorithms will try to avoid it)
-
-to do:
------
-* add further keyboard input support
-* improve the way creeps are moving
