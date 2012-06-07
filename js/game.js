@@ -95,6 +95,46 @@ function Game(canvas, document, window) {
      */
     this.map.path = astar.search(this.map.tiles.nodes, this.map.startingPoint, this.map.endingPoint);
     /**
+     * Array with the corner points the path consists of
+     * @type {Array}
+     */
+    this.map.pathEdges = (function(path){
+        /**
+         * new path which will be returned (only storing the edges)
+         * @type {Array}
+         */
+        var newPath = [],
+        /**
+         * variable for storing the current direction
+         * @type {String}
+         */
+            dir,
+        /**
+         * variable for storing the previous direction
+         * @type {String}
+         */
+            _dir;
+
+        // loop through all points of the path
+        for (var i = 0; i < path.length-1; i++) { // path.length-1 because there we are always checking the next point as well (path[i+1]...)
+            _dir = dir; // store the previous direction
+            if (path[i].x !== path[i+1].x) { // if the new x position is != the old one, there's a change in direction
+                dir="x";
+            }
+            else {
+                dir="y";
+            }
+
+            if (dir !== _dir) { // if direction has changed, path[i] is a corner point
+                newPath.push(path[i]); // push it into the array which is to be returned
+            }
+        };
+
+        newPath.push(path[path.length-1]); // don't forget (to manually push) the last point...
+
+        return newPath; // now return the calculated path
+    })(this.map.path);
+    /**
      * storing all the games infos like resources, lives, ...
      * @type {Object}
      */
@@ -566,12 +606,12 @@ function Game(canvas, document, window) {
          * shorthand for path
          * @type {Array}
          */
-            path      = game.map.path,
+            path      = game.map.pathEdges,
         /**
          * tolerance whether a point has been reached or not (if set to 0 the creep has to be exactly on the point - this will never be the case though)
          * @type {Number}
          */
-            tolerance = 10/w;
+            tolerance = 1/w;
         /**
          * x-coordinate, is _not_ in pixels, but in squares (e.g. 3 squares from the left)
          * @type {Number}
@@ -715,9 +755,13 @@ function Game(canvas, document, window) {
             }
 
             if ((this.x <= this.next.x+tolerance && this.x >= this.next.x-tolerance) && (this.y <= this.next.y+tolerance && this.y >= this.next.y-tolerance)) { // if next point has been reached
+                this.x = this.next.x;
+                this.y = this.next.y;
+
                 i++; // increase counter by one
                 if (path[i+1] !== undefined) { // check if there is a next point and if so ...
-                    this.next.x = path[i+1].x; // ... set next.x and next.y to the ones of the next point
+                    // ... set next.x and next.y to the ones of the next point
+                    this.next.x = path[i+1].x;
                     this.next.y = path[i+1].y;
                 }
                 else { // if there is no point left, creep has reached the end
