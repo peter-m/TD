@@ -133,6 +133,7 @@ function Game(canvas, document, window) {
         newPath.push(path[path.length-1]); // don't forget (to manually push) the last point...
 
         return newPath; // now return the calculated path
+
     })(this.map.path);
     /**
      * storing all the games infos like resources, lives, ...
@@ -182,7 +183,12 @@ function Game(canvas, document, window) {
              * @type {Array}
              */
             normal: [["wood", 100],["steel",100]]
-        }
+        },
+        /**
+         * storing the amount of waves which have already been survived
+         * @type {Number}
+         */
+        waveCount: 0
     };
     /**
      * stores some variables for debugging
@@ -243,8 +249,6 @@ function Game(canvas, document, window) {
          */
         this.bg_map = new Map(this);
         this.internal.wave = new Wave(this,[["normal",5]]); // initiate a new wave
-        this.internal.turrets[0] = new Turret(this, 2, 2); // place a tower for testing purposes
-        this.internal.turrets[1] = new Turret(this, 4, 10); // place a tower for testing purposes
         /**
          * reference to the menu object
          * @type {Menu}
@@ -551,33 +555,46 @@ function Game(canvas, document, window) {
          * shorthand for the list of creeps
          * @type {Array}
          */
-        var creeps = game.internal.creeps;
-        for (var i = 0; i < creepList.length; i++) { // for every group of creeps...
-            for (var j = 0; j < creepList[i][1]; j++) { // ...spawn given amount of creeps
-                switch (creepList[i][0]) {
-                    case "normal":
-                        creeps[creeps.length] = new Creep(game, 100, 4);
-                        break;
-                    default:
-                        creeps[creeps.length] = new Creep(game, 100, 4);
-                        break;
-                }
-            };
-        };
-
-        var _this = this,
+        var creeps = game.internal.creeps,
+        /**
+         * reference to the Wave object (=this), as "this" = "window" inside the window.setInterval function
+         * @type {Object}
+         */
+            _this = this,
         /**
          * calls the spawnCreep function every second to spawn a new creep
          * @type {Interval}
          */
             creepSpawner = window.setInterval(function(){
                 _this.spawnCreep(); // call it like that because within a setInterval function, this refers to window
-            }, 1000),
+            }, 500),
         /**
          * counter used to iterate through the list of all creeps
          * @type {Number}
          */
             i = 0;
+
+        game.internal.waveCount++; // increase waveCount by one when launching a new wave
+
+        for (var i = 0; i < creepList.length; i++) { // for every group of creeps...
+            for (var j = 0; j < creepList[i][1]; j++) { // ...spawn given amount of creeps
+                switch (creepList[i][0]) {
+                    case "normal":
+                        creeps[creeps.length] = new Creep(game, 100, 4, "#C0F");
+                        break;
+                    case "fast":
+                        creeps[creeps.length] = new Creep(game, 50,  8, "#FF0");
+                        break;
+                    case "hard":
+                        creeps[creeps.length] = new Creep(game, 200, 2, "#0F0");
+                        break;
+                    default:
+                        creeps[creeps.length] = new Creep(game, 100, 4, "#C0F");
+                        break;
+                }
+            };
+        };
+
         /**
          * spawns the "i"th creep of the game.internal.creeps Array until there is none left --> then clear the timer (creepSpawner)
          */
@@ -590,8 +607,14 @@ function Game(canvas, document, window) {
             }
         }
     }
-
-    function Creep(game, lives, speed) {
+    /**
+     * basic creep class
+     * @param {Object} game  reference to the game object
+     * @param {Number} lives number of maximum lives
+     * @param {Number} speed how fast does it move
+     * @param {String} color which color does it have
+     */
+    function Creep(game, lives, speed, color) {
         /**
          * counter - stands for the "i"th point of the path the creep is on
          * @type {Number}
@@ -611,7 +634,7 @@ function Game(canvas, document, window) {
          * tolerance whether a point has been reached or not (if set to 0 the creep has to be exactly on the point - this will never be the case though)
          * @type {Number}
          */
-            tolerance = 1/w;
+            tolerance = speed/w;
         /**
          * x-coordinate, is _not_ in pixels, but in squares (e.g. 3 squares from the left)
          * @type {Number}
@@ -775,7 +798,7 @@ function Game(canvas, document, window) {
          */
         this.render  = function(){
             game.stage.save();
-                game.stage.fillStyle = "#C0F";
+                game.stage.fillStyle = color;
                 game.stage.fillRect(this.y*w + this.width/2, this.x*w + this.height/2, this.width, this.height); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
             game.stage.restore();
 
@@ -1003,7 +1026,31 @@ function Game(canvas, document, window) {
      * send in a new wave
      * @param  {Array} creeps information how many of which type of creep to send in (e.g. [[Creep,10],[Creep,5]])
      */
-    this.callNewWave = function(creeps) {
+    this.callNewWave = function() {
+        /**
+         * stores how many of which creeps are sent with the next wave
+         * @type {Array}
+         */
+        var creeps = [];
+        // depending on how many waves you have survived, send different kind of waves
+        switch(this.internal.waveCount) {
+            case 1:
+                creeps = [["normal",20]];
+                break;
+            case 2:
+                creeps = [["normal",40], ["fast",10], ["hard",10]];
+                break;
+            case 3:
+                creeps = [["normal",40], ["fast",20], ["hard",20]];
+                break;
+            case 4:
+                creeps = [["hard",40], ["normal",10], ["fast",30], ["hard",20]];
+                break;
+            default:
+                creeps = [["hard",40], ["normal",20], ["fast",20], ["hard",100]];
+                break;
+        }
+
         if (!this.internal.wave.active) { // if the current wave is finished...
             this.internal.wave = new Wave(this, creeps); // initiate a new wave
             this.menu.hint("a new wave is being launched");
@@ -1013,7 +1060,14 @@ function Game(canvas, document, window) {
         }
     }
 
-    this.placeTower = function(type) {
+    /**
+     * places a tower on the given coordinates
+     * @param  {String} type type of tower which should be placed
+     * @param  {Number} x    x coordinate to place the tower on
+     * @param  {Number} y    y coordinate to place the tower on
+     * @return {Object}      returns whether it was successful or not (if not, why)
+     */
+    this.placeTower = function(type, x, y) {
         /**
          * shorthand for the turrets array
          * @type {Array}
@@ -1023,17 +1077,7 @@ function Game(canvas, document, window) {
          * shorthand for the array storing the tiles' type of the map
          * @type {Array}
          */
-            tiles = this.map.tiles.input,
-        /**
-         * shorthand for the y value of the currently hovered (=clicked) tile
-         * @type {Number}
-         */
-            x = this.hoveredTile.y,
-        /**
-         * shorthand for the x value of the currently hovered (=clicked) tile
-         * @type {Number}
-         */
-            y = this.hoveredTile.x;
+            tiles = this.map.tiles.input;
 
         if (tiles[x][y]===1) { // if hovered tile is a wall, we can place a tower there
             /**
@@ -1099,17 +1143,29 @@ function Game(canvas, document, window) {
                     }
                     // signal the user that tower has been placed
                     this.menu.hint("placed a tower at "+y+":"+x);
+                    return {
+                        error: 0 // no error
+                    }
                 }
                 else { // if resources are not available
                     this.menu.hint("you have to gather more resources to build this tower!");
+                    return {
+                        error: 3 // error 3 means you don't have enough resources
+                    }
                 }
             }
             else { // if there is already another tower at this position
                 this.menu.hint("there is already another tower here!");
+                return {
+                    error: 2 // error 2 means that there's already another tower
+                }
             }
         }
         else { // if you try to place a tower on the road
             this.menu.hint("you cannot place a tower here!");
+            return {
+                error: 1 // error 1 means that you can't build anything on that tile
+            }
         }
     }
 
@@ -1167,6 +1223,8 @@ $(document).mousemove(function(e){
 ///////////////////////////////////////////
 k.up("alt p", function(){
     (game.state==="running") ? game.pause() : game.resume();
+}).up("alt c", function(){
+    console.log(game.internal.creeps);
 });
 
 ///////////////////////////////////////////////
@@ -1184,9 +1242,22 @@ $("#showHealthBars").attr("checked","checked").on("click",function(){ // by defa
 ////////////////////
 
 $("#callNewWave").on("click",function(){
-    game.callNewWave([["normal",20]]);
+    game.callNewWave();
 });
 
 $(_game).on("click",function(){
-    game.placeTower("normal");
+    switch(game.placeTower("normal", game.hoveredTile.y, game.hoveredTile.x).error) {
+        case 0: // no error
+
+            break;
+        case 1: // you can't build on this tile
+
+            break;
+        case 2: // there is already another tower
+            
+            break;
+        case 3: // you don't have enough resources
+
+            break;
+    }
 });
