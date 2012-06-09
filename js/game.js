@@ -439,6 +439,11 @@ function Game(canvas, document, window) {
          */
         this.displays.hints = document.getElementById("hints");
         /**
+         * reference to the DOM element showing the options for a specific turret
+         * @type {Object}
+         */
+        this.displays.turretMenu = document.getElementById("turretMenu");
+        /**
          * storing references to resource displays
          * @type {Object}
          */
@@ -467,10 +472,27 @@ function Game(canvas, document, window) {
         }
         /**
          * shows a hint to the player
-         * @type {String}
+         * @type {String} msg message to be displayed
          */
         this.hint = function(msg){
             this.displays.hints.innerHTML = msg+''; // +'' converts Number to String
+        }
+        /**
+         * show options for a specific tower
+         * @param  {Turret} tower tower to show (and apply) the options for(/to)
+         */
+        this.showTurretMenu = function(turret) {
+            document.getElementById(turret.focus).checked = "checked"; // set the current behavior to checked
+            $("input:radio", "#focusRadios").removeAttr("disabled").on("change", function(e){ // listen to changes
+                turret.focus = e.target.id; // set the focus to the ID of the clicked element (IDs are the possible types of the turrets' focus attribute)
+            });
+            turret.drawRadius = true;
+        }
+        /**
+         * removes event listeners
+         */
+        this.hideTurretMenu = function() {
+            $("input:radio", "#focusRadios").attr("disabled","disabled").off("change");
         }
     }
 
@@ -530,7 +552,10 @@ function Game(canvas, document, window) {
                 };
             game.stage.restore();
         }
-
+        /**
+         * highlight a specific tile
+         * @param  {Object} tile tile to be highlighted
+         */
         this.highlightTile = function(tile){
             game.stage.save();
                 game.stage.fillStyle = "#C0F";
@@ -539,7 +564,11 @@ function Game(canvas, document, window) {
             game.stage.restore();
         }
     }
-
+    /**
+     * initiates a new wave when being called
+     * @param {Object} game      reference to the current game instance
+     * @param {Array}  creepList creeps to be spawned
+     */
     function Wave(game, creepList) {
         /**
          * indicates whether there are still enemies (if there are, no new wave can be initiated)
@@ -702,12 +731,12 @@ function Game(canvas, document, window) {
              * drops 10 units of wood with a possibility of 90%
              * @type {Array}
              */
-            ["wood", 10, 90],
+            ["wood", 10, 100],
             /**
              * drops 50 units of steel with a possibility of 10%
              * @type {Array}
              */
-            ["steel", 90, 10]
+            ["steel", 10, 100]
         ];
 
         /**
@@ -859,12 +888,22 @@ function Game(canvas, document, window) {
          * @type {Number}
          */
         this.attackPower = 20;
+        /**
+         * option which type of creep should be focused ("first"|"last"|"weakest"|"strongest")
+         * @type {String}
+         */
+        this.focus = "first";
+        /**
+         * if set to true, the radius will be visualized
+         * @type {Boolean}
+         */
+        this.drawRadius = false;
 
         /**
          * try to target a creep and shoot/handle cooldown
          */
         this.update = function() {
-            this.creepsInRange = lookForEnemies(game.internal.creeps, this); // look for creeps around the tower
+            this.creepsInRange = lookForEnemies(game.internal.creeps, this, this.focus); // look for creeps around the tower
 
             if ((this.coolDown <= 0) && (this.creepsInRange[0]) !== undefined) {
                 // go shoot a creep
@@ -885,6 +924,17 @@ function Game(canvas, document, window) {
                 game.stage.fillStyle = "#C00";
                 game.stage.fillRect(this.y*w, this.x*w, w, w); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
             game.stage.restore();
+            if (this.drawRadius) {
+                game.stage.save();
+                    game.stage.globalAlpha = 0.2;
+                    game.stage.beginPath();
+                        game.stage.fillStyle = "#C00";                
+                        game.stage.arc((this.y+.5)*w-this.range, (this.x+.5)*w-this.range, this.range*w, 0, Math.PI*2, false);
+                        game.stage.fill();
+                    game.stage.closePath();
+                    game.stage.fillRect(this.y*w, this.x*w, w, w); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
+                game.stage.restore();
+            }
         }
         /**
          * launches a bullet in the creep's direction
@@ -893,7 +943,7 @@ function Game(canvas, document, window) {
          */
         this.shoot = function(bullet, creep) {
             var bulletList = game.internal.bullets;
-            bulletList[bulletList.length] = new bullet(game, creep, this.x + .5, this.y + .5, this.attackPower);
+            bulletList[bulletList.length] = new bullet(game, creep, this.x, this.y, this.attackPower);
         }
         /**
          * look for enemies within range
@@ -901,19 +951,44 @@ function Game(canvas, document, window) {
          * @param  {Number} turret    reference to the itself (the tower object)
          * @return {Array}            list of creeps within range of the tower
          */
-        function lookForEnemies(creepList, turret) {
+        function lookForEnemies(creepList, turret, focus) {
             var creepsInRange = [];
 
-            for (var i = 0; i < creepList.length; i++) { // for every creep...
+            for (var i = 0; i < creepList.length; i++) { // for every creep... (beginning with the first one!)
                 /**
-                 * reference to the "i"th creep
+                 * reference to the "i"th creep on the stage
                  * @type {Creep}
                  */
                 var creep = creepList[i];
 
                 if (creep.spawned) { // don't calculate for dead/... creeps
                     if (Math.sqrt(Math.pow((creep.x - turret.x),2)+Math.pow((creep.y - turret.y),2)) < turret.range) { // check if distance between the position of the current creep and the turret is less that the turrets range
-                        creepsInRange.push(creep);
+                        switch(focus) { // it will always shoot the first creep in the array --> make sure the wanted creep is first (keep in mind: it will loop through the creeps beginning with the first one)
+                            case "first": // the first one will be the first...
+                                creepsInRange.push(creep);
+                                break;
+                            case "last": // push every item in the first place of the array --> reverted order
+                                creepsInRange = [creep].concat(creepsInRange);
+                                break;
+                            case "weakest":
+                                for (var j = 0; j < creepsInRange.length; j++) { // loop through all enemies that are already in the creepsInRange array
+                                    if (creep.lives < creepsInRange[j].lives) { // if the creep has less lives than the current creep in the creepsInRange array...
+                                        creepsInRange.splice(j,0,creep); // ...add the creep at that position ...
+                                        break; // ... and stop looping through (we already added it)
+                                    }
+                                };
+                                creepsInRange.push(creep); // if there are no more creeps in the list to check for (and no one was weaker than the creep we want to add)...
+                                break;
+                            case "strongest":
+                                for (var j = 0; j < creepsInRange.length; j++) { // loop through all enemies that are already in the creepsInRange array
+                                    if (creep.lives > creepsInRange[j].lives) { // if the creep has more lives than the current creep in the creepsInRange array...
+                                        creepsInRange.splice(j,0,creep); // ...add the creep at that position ...
+                                        break; // ... and stop looping through (we already added it)
+                                    }
+                                };
+                                creepsInRange.push(creep); // if there are no more creeps in the list to check for (and no one was weaker than the creep we want to add)...
+                                break;
+                        }
                     }
                 }
             };
@@ -959,17 +1034,17 @@ function Game(canvas, document, window) {
          * how fast does it move
          * @type {Number}
          */
-        this.speed = .3;
+        this.speed = 10;
         /**
          * x value of vector for moving the bullet
          * @type {Number}
          */
-        this.vx = this.dx / this.distance * this.speed;
+        this.vx = this.dx / this.distance * this.speed/w;
         /**
          * y value of vector for moving the bullet
          * @type {Number}
          */
-        this.vy = this.dy / this.distance * this.speed;
+        this.vy = this.dy / this.distance * this.speed/w;
         /**
          * how much damage does it deal
          * @type {Number}
@@ -1005,7 +1080,7 @@ function Game(canvas, document, window) {
         this.render = function(){
             game.stage.save();
                 game.stage.fillStyle = "#F00";
-                game.stage.fillRect(this.y*w-this.width/2, this.x*w-this.height/2, this.width, this.height); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
+                game.stage.fillRect(this.y*w-this.width/2+w/2, this.x*w-this.height/2+w/2, this.width, this.height); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
             game.stage.restore();
         }
         /**
@@ -1021,6 +1096,28 @@ function Game(canvas, document, window) {
     //////////
     // API  //
     //////////
+    
+    /**
+     * returns the turret for a given position
+     * @param  {Number} x x-coordinate (not in pixels!)
+     * @param  {Number} y y-coordinate (not in pixels!)
+     * @return {Turret}   turret that is on this position
+     */
+    this.getTurret = function(x,y) {
+        /**
+         * shorthand for the turret list
+         * @type {Array}
+         */
+        var turrets = this.internal.turrets;
+
+        for (var i = 0; i < turrets.length; i++) { // loop through all turrets
+            if(turrets[i].x == x && turrets[i].y == y) { // and check if coordinates are the same
+                return turrets[i]; // if so, return this tower
+            }
+        };
+
+        return false; // if no turret was found, return false
+    }
 
     /**
      * send in a new wave
@@ -1126,6 +1223,9 @@ function Game(canvas, document, window) {
                             turrets[turrets.length] = new Turret(this, x, y);
                             break;
                     }
+                    // trigger the selection event
+                    $("#game").trigger("select:tower", turrets[turrets.length-1]);
+
                     // subtract the costs from the resources
                     for (var i = 0; i < this.internal.costs[type].length; i++) {
                         /**
@@ -1155,7 +1255,7 @@ function Game(canvas, document, window) {
                 }
             }
             else { // if there is already another tower at this position
-                this.menu.hint("there is already another tower here!");
+                this.menu.hint("selected a tower");
                 return {
                     error: 2 // error 2 means that there's already another tower
                 }
@@ -1246,7 +1346,8 @@ $("#callNewWave").on("click",function(){
 });
 
 $(_game).on("click",function(){
-    switch(game.placeTower("normal", game.hoveredTile.y, game.hoveredTile.x).error) {
+    $("#game").trigger("deselect:tower");
+    switch(game.placeTower("normal", game.hoveredTile.y, game.hoveredTile.x).error) { // function returns an error object, telling you what happened
         case 0: // no error
 
             break;
@@ -1254,10 +1355,19 @@ $(_game).on("click",function(){
 
             break;
         case 2: // there is already another tower
-            
+            $("#game").trigger("select:tower", game.getTurret(game.hoveredTile.y, game.hoveredTile.x)); // trigger the select:tower event and pass the selected tower as argument
             break;
         case 3: // you don't have enough resources
 
             break;
     }
 });
+
+$("#game").bind("select:tower", function(e,turret){ // when selecting a tower...
+    game.menu.showTurretMenu(turret); // ...show turret menu 
+}).bind("deselect:tower", function(){ // when deselecting a tower...
+    game.menu.hideTurretMenu(); // ...hide the menu and...
+    for (var i = 0; i < game.internal.turrets.length; i++) { // ...loop through all turrets and...
+        game.internal.turrets[i].drawRadius = false; // ...reset the drawRadius setting
+    };
+})
