@@ -338,6 +338,7 @@ function Game(canvas, document, window) {
                         if (creeps[j].spawned) { // only check collisions for creeps that are still living
                             if (collides(bullets[i], creeps[j])) { // ... check if they collide
                                 bullets[i].hit(creeps[j]); // call the hit function (every type of bullet may have their own one)
+                                return; // don't try it once again - we don't want one bullet to kill 2 enemies
                             }
                         }
                     };
@@ -475,7 +476,9 @@ function Game(canvas, document, window) {
          * @type {String} msg message to be displayed
          */
         this.hint = function(msg){
-            this.displays.hints.innerHTML = msg+''; // +'' converts Number to String
+            var hint = this.displays.hints;
+            hint.innerHTML = msg+''; // +'' converts Number to String
+            $(hint).addClass("highlight").delay(2000).removeClass("highlight");
         }
         /**
          * show options for a specific tower
@@ -609,16 +612,16 @@ function Game(canvas, document, window) {
             for (var j = 0; j < creepList[i][1]; j++) { // ...spawn given amount of creeps
                 switch (creepList[i][0]) {
                     case "normal":
-                        creeps[creeps.length] = new Creep(game, 100, 4, "#C0F");
+                        creeps[creeps.length] = new Creep(game, 100, 2, "#C0F");
                         break;
                     case "fast":
-                        creeps[creeps.length] = new Creep(game, 50,  8, "#FF0");
+                        creeps[creeps.length] = new Creep(game, 50,  4, "#FF0");
                         break;
                     case "hard":
-                        creeps[creeps.length] = new Creep(game, 200, 2, "#0F0");
+                        creeps[creeps.length] = new Creep(game, 200, 1, "#0F0");
                         break;
                     default:
-                        creeps[creeps.length] = new Creep(game, 100, 4, "#C0F");
+                        creeps[creeps.length] = new Creep(game, 100, 2, "#C0F");
                         break;
                 }
             };
@@ -877,7 +880,7 @@ function Game(canvas, document, window) {
          * how often will the tower shoot per second
          * @type {Number}
          */
-        this.speed = 5;
+        this.speed = 1;
         /**
          * how long will it take until the tower can shoot again
          * @type {Number}
@@ -887,7 +890,7 @@ function Game(canvas, document, window) {
          * how many lives will take away
          * @type {Number}
          */
-        this.attackPower = 20;
+        this.attackPower = 100;
         /**
          * option which type of creep should be focused ("first"|"last"|"weakest"|"strongest")
          * @type {String}
@@ -1034,7 +1037,7 @@ function Game(canvas, document, window) {
          * how fast does it move
          * @type {Number}
          */
-        this.speed = 10;
+        this.speed = 15;
         /**
          * x value of vector for moving the bullet
          * @type {Number}
@@ -1054,7 +1057,7 @@ function Game(canvas, document, window) {
          * width of the bullet
          * @type {Number}
          */
-        this.width = w/8;
+        this.width = w/4; // make it a little bigger than it is rendered, to circumstance difficulties with hitting enemies
         /**
          * height of the bullet
          * @type {Number}
@@ -1080,7 +1083,7 @@ function Game(canvas, document, window) {
         this.render = function(){
             game.stage.save();
                 game.stage.fillStyle = "#F00";
-                game.stage.fillRect(this.y*w-this.width/2+w/2, this.x*w-this.height/2+w/2, this.width, this.height); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
+                game.stage.fillRect(this.y*w-this.width/2+w/2, this.x*w-this.height/2+w/2, this.width/2, this.height/2); // remember coordinates are not in pixels --> we have to multiply them with the gutterWidth
             game.stage.restore();
         }
         /**
@@ -1241,28 +1244,23 @@ function Game(canvas, document, window) {
 
                         this.internal.resources[resourceNeeded] -= amountNeeded;
                     }
-                    // signal the user that tower has been placed
-                    this.menu.hint("placed a tower at "+y+":"+x);
                     return {
                         error: 0 // no error
                     }
                 }
                 else { // if resources are not available
-                    this.menu.hint("you have to gather more resources to build this tower!");
                     return {
                         error: 3 // error 3 means you don't have enough resources
                     }
                 }
             }
             else { // if there is already another tower at this position
-                this.menu.hint("selected a tower");
                 return {
                     error: 2 // error 2 means that there's already another tower
                 }
             }
         }
         else { // if you try to place a tower on the road
-            this.menu.hint("you cannot place a tower here!");
             return {
                 error: 1 // error 1 means that you can't build anything on that tile
             }
@@ -1345,20 +1343,26 @@ $("#callNewWave").on("click",function(){
     game.callNewWave();
 });
 
-$(_game).on("click",function(){
-    $("#game").trigger("deselect:tower");
-    switch(game.placeTower("normal", game.hoveredTile.y, game.hoveredTile.x).error) { // function returns an error object, telling you what happened
+$(_game).on("click",function(){ // when clicking somewhere
+    $("#game").trigger("deselect:tower"); // trigger the deselect:tower event
+    /**
+     * stores the returned information from the placeTower function
+     * @type {Object}
+     */
+    var returned = game.placeTower("normal", game.hoveredTile.y, game.hoveredTile.x);
+    switch(returned.error) { // function returns an error object, telling you what happened
         case 0: // no error
-
+            game.menu.hint("placed a tower!"); // signal the user that tower has been placed
             break;
         case 1: // you can't build on this tile
-
+            this.menu.hint("you cannot place a tower here!");
             break;
         case 2: // there is already another tower
+            game.menu.hint("selected a tower");
             $("#game").trigger("select:tower", game.getTurret(game.hoveredTile.y, game.hoveredTile.x)); // trigger the select:tower event and pass the selected tower as argument
             break;
         case 3: // you don't have enough resources
-
+            game.menu.hint("you have to gather more resources to build this tower!");
             break;
     }
 });
