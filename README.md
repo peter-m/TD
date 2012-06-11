@@ -26,3 +26,16 @@ state of affairs:
         [1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,0,1]
 
     0 = path, 1 = wall, 2 = something that slows down enemies and has a higher cost (A* algorithms will try to avoid it)
+
+todo:
+-----
+* organize global/local variables
+* remove unneccesary parameters for classes (e.g.color) and add others instead (spawning position for creeps)
+* placeTower() should only handle the tower placing logic, everthing else should be handled externally
+* find slicker jQuery alternative (prototype.js? --> has to handle mouse position, cross browser event listener adding and pub/sub management)
+* don't pass entire game instance everytime --> memory management
+* create Sprite class with hover/... listener and derive Creep/Tower/other interactive game objects of it
+* add upgrading options for turrets
+* don't start a wave immediately
+* spawn minor creeps if a hard one gets killed
+* clean up namespace conventions (in particular: replace every tower with turret and every draw with render)
